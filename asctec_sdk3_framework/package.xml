@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package>
+  <name>asctec_sdk3_framework</name>
+  <version>0.0.1</version>
+  <description>The asctec_sdk3_framework metapackage</description>
+
+  <maintainer email="muhrix@gmail.com">Murilo F. M.</maintainer>
+ 
+  <!-- One license tag required, multiple allowed, one license per tag -->
+  <!-- Commonly used license strings: -->
+  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
+  <license>BSD</license>
+
+  <!-- <url type="website">http://wiki.ros.org/asctec_sdk3_drivers</url> -->
+
+  <author email="muhrix@gmail.com">Murilo F. M.</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>asctec_hlp_interface</run_depend>
+  <run_depend>aci_remote_v100</run_depend>
+  <run_depend>aci_remote_tutorials</run_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>
