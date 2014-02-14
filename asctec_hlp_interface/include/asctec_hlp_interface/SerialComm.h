@@ -14,40 +14,85 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
 
 #include <string>
 #include <vector>
 
 #include <ros/ros.h>
 
-#include "aci_remote_v100/asctecCommIntf.h"
-
-typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
-
-#define SERIAL_PORT_READ_BUF_SIZE 256
+#define SERIAL_PORT_READ_BUF_SIZE 512
 
 class SerialComm {
+	//typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
+
 public:
-	SerialComm();
+	//SerialComm(); // default constructor no implemented; must pass string
+	SerialComm(const std::string&);
+	// non-copyable class, hence = delete (c++11)
+	//SerialComm(const SerialComm&) = delete;
+	//const SerialComm& operator=(const SerialComm&) = delete;
 	virtual ~SerialComm();
 
+	// methods to be used as callbacks of ACI
+	void txCallback(void*, unsigned short);
+	boost::function<void (const unsigned char*, size_t)> receive;
+
+	//boost::shared_ptr<const boost::system::error_code&> errorStatus() const;
+
 	int openPort();
-	int openPort(const std::string& port, uint32_t baud);
 	void closePort();
+	bool isOpen() const;
 
 private:
-	SerialPortPtr port_;
-	boost::asio::io_service uart_service_;
-	boost::asio::deadline_timer rx_timeout_;
-	bool rx_timeout_occurred_;
-	boost::thread uart_thread_;
+	SerialComm(const SerialComm&);
+	const SerialComm& operator=(const SerialComm&);
+
+protected:
+	//SerialPortPtr port_;
+	boost::asio::serial_port port_;
+	boost::asio::io_service io_service_;
+	//boost::shared_ptr<boost::thread> io_thread_;
+	//boost::shared_ptr<const boost::system::error_code&> io_error_;
 
 	std::string port_name_;
 	uint32_t baud_rate_;
 
-	uint8_t buffer_[SERIAL_PORT_READ_BUF_SIZE];
+	boost::array<unsigned char, SERIAL_PORT_READ_BUF_SIZE> buffer_;
 
-	int configurePort(uint32_t baud);
+	bool open_;
+
+    /**
+     * Callback called to start an asynchronous read operation.
+     * This callback is called by the io_service in the spawned thread.
+     */
+    void doRead();
+
+    /**
+     * Callback called at the end of the asynchronous operation.
+     * This callback is called by the io_service in the spawned thread.
+     */
+    void readHandler(const boost::system::error_code&, size_t);
+
+    /**
+     * Callback called to start an asynchronous write operation.
+     * If it is already in progress, does nothing.
+     * This callback is called by the io_service in the spawned thread.
+     */
+    void doWrite();
+
+    /**
+     * Callback called at the end of an asynchronous write operation,
+     * if there is more data to write, restarts a new write operation.
+     * This callback is called by the io_service in the spawned thread.
+     */
+    void writeHandler(boost::shared_ptr<std::vector<unsigned char> >,
+    		const boost::system::error_code&, size_t);
+
+    /**
+     * Callback to close serial port
+     */
+    void doClose();
 };
 
 #endif /* SERIALCOMM_H_ */

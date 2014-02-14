@@ -9,78 +9,131 @@
 
 #include "asctec_hlp_interface/SerialComm.h"
 
-SerialComm::SerialComm(): rx_timeout_(uart_service_), port_name_("/dev/ttyUSB0"),
-	baud_rate_(57600) {
+SerialComm::SerialComm(const std::string& port):
+	port_name_(port), io_service_(), port_(io_service_), //io_thread_(),
+	baud_rate_(230400), open_(false) {
 
 }
 
 SerialComm::~SerialComm() {
-
+	if (isOpen()) {
+		try {
+			closePort();
+		}
+		catch (...) {
+			// do not throw exceptions from a destructor
+		}
+	}
 }
 
 int SerialComm::openPort() {
-	return openPort(port_name_, baud_rate_);
-}
-
-int SerialComm::openPort(const std::string& port, uint32_t baud) {
-	port_name_ = port;
-
-	try {
-		port_.reset(new boost::asio::serial_port(uart_service_));
-		port_->open(port_name_);
-	}
-	catch (boost::system::system_error::exception& e) {
-		ROS_ERROR_STREAM("Could not open serial port " << port_name_ << ". " << e.what());
-		return -1;
-	}
-
-	if (configurePort(baud) < 0) {
-		return -1;
-	}
-	return 0;
-}
-
-int SerialComm::configurePort(uint32_t baud) {
-	/*
-	int32_t baudrates[] = {9600, 14400, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
-	uint32_t best_baudrate = 57600;
-	uint32_t min_diff = 1e6;
-
-	for (uint32_t i = 0; i < sizeof(baudrates) / sizeof(uint32_t); ++i) {
-		uint32_t diff = std::abs(baudrates[i] - baud);
-		if (diff < min_diff) {
-			min_diff = diff;
-			best_baudrate = baudrates[i];
+	if (!open_) {
+		try {
+			//port_.reset(new boost::asio::serial_port(io_service_));
+			port_.open(port_name_);
 		}
-	}
+		catch (boost::system::system_error::exception& e) {
+			ROS_ERROR_STREAM("Could not open serial port " << port_name_ << ". " << e.what());
+			return -1;
+		}
 
-	if (best_baudrate != baud) {
-		ROS_WARN_STREAM("Unsupported baud rate. Choosing closest supported value: " << best_baudrate);
-	}
-	baud_rate_ = best_baudrate;
-	*/
-	if (baud != 57600) {
-		ROS_WARN_STREAM("Baud rate is currently hardcoded to 57600 and cannot be changed.");
-	}
-	baud_rate_ = 57600;
+		try {
+			port_.set_option(boost::asio::serial_port_base::baud_rate(baud_rate_));
+			port_.set_option(boost::asio::serial_port_base::character_size(8));
+			port_.set_option(boost::asio::serial_port_base::stop_bits(
+					boost::asio::serial_port_base::stop_bits::one));
+			port_.set_option(boost::asio::serial_port_base::parity(
+					boost::asio::serial_port_base::parity::none));
+		}
+		catch (boost::system::system_error::exception& e) {
+			ROS_ERROR_STREAM("Could not configure serial port " << port_name_ << ". " << e.what());
+			return -1;
+		}
 
-	try {
-		port_->set_option(boost::asio::serial_port_base::baud_rate(baud_rate_));
-		port_->set_option(boost::asio::serial_port_base::character_size(8));
-		port_->set_option(boost::asio::serial_port_base::stop_bits(
-				boost::asio::serial_port_base::stop_bits::one));
-		port_->set_option(boost::asio::serial_port_base::parity(
-				boost::asio::serial_port_base::parity::none));
+//		try {
+//			io_thread_ = boost::shared_ptr<boost::thread>
+//				(new boost::thread(boost::bind(&boost::asio::io_service::run, io_service_)));
+//		}
+//		catch (boost::system::system_error::exception& e) {
+//			ROS_ERROR_STREAM("Could not create Boost IO thread. " << e.what());
+//		}
+
+		open_ = true;
 	}
-	catch (boost::system::system_error::exception& e) {
-		ROS_ERROR_STREAM("Could not configure serial port " << port_name_ << ". " << e.what());
-		return -1;
+	else {
+		ROS_WARN_STREAM("Serial port " << port_name_ << " is already open");
 	}
 	return 0;
 }
 
 void SerialComm::closePort() {
-	uart_service_.post(boost::bind(&boost::asio::deadline_timer::cancel, &rx_timeout_));
-	uart_service_.post(boost::bind(&boost::asio::serial_port::close, port_));
-	uart_thread_.join();
+	if (!isOpen())
+		return;
+
+	open_ = false;
+	io_service_.post(boost::bind(&SerialComm::doClose, this));
+	//io_thread_->join();
+	io_service_.reset();
 }
+
+bool SerialComm::isOpen() const {
+	return open_;
+}
+
+void SerialComm::doClose() {
+	try {
+		port_.cancel();
+		port_.close();
+	}
+	catch (boost::system::system_error& e) {
+		ROS_ERROR_STREAM("Could not close serial port " << port_name_ << ". " << e.what());
+	}
+}
+
+void SerialComm::txCallback(void* bytes, unsigned short len) {
+	unsigned char* ucharBuf = static_cast<unsigned char*>(bytes);
+	// make a copy of the buffer because it must exist and not change whilst being sent
+	// and owner of void* bytes may not guarantee existence nor "const-ness"
+	boost::shared_ptr<std::vector<unsigned char> >
+			vecBuf(new std::vector<unsigned char>(ucharBuf, ucharBuf + len));
+
+	// since vecBuf is a shared_ptr, passing the ptr to the handler will guarantee
+	// it does not get freed once this function returns
+	boost::asio::async_write(port_, boost::asio::buffer(*vecBuf),
+			boost::bind(&SerialComm::writeHandler, this, vecBuf,
+					boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+}
+
+void SerialComm::doRead() {
+	// call async_read_some for the first time so that something is received in the buffer
+	port_.async_read_some(boost::asio::buffer(buffer_),
+			boost::bind(&SerialComm::readHandler, this, boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+}
+
+void SerialComm::readHandler(const boost::system::error_code& error,
+		size_t bytes_transferred) {
+	if (!error) {
+		// the buffer should have some data from previous call to async_read_some ( doRead() )
+		// thus, feed ACI with data
+
+		port_.async_read_some(boost::asio::buffer(buffer_),
+				boost::bind(&SerialComm::readHandler, this, boost::asio::placeholders::error,
+						boost::asio::placeholders::bytes_transferred));
+
+	}
+}
+
+void SerialComm::writeHandler(boost::shared_ptr<std::vector<unsigned char> > bytesVec,
+		const boost::system::error_code& error, size_t bytes_transferred) {
+	if ( error || (bytes_transferred != bytesVec->size()) ) {
+		ROS_ERROR_STREAM("Async write to serial port " << port_name_ << ". " << error.message());
+		doClose();
+	}
+}
+
+
+
+
+
