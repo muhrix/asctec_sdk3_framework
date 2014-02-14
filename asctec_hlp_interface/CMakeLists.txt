@@ -82,9 +82,9 @@ find_package(Boost REQUIRED COMPONENTS system signals thread)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES asctec_hlp_interface
-#  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs std_msgs
+  INCLUDE_DIRS include
+  LIBRARIES asctec_aci_interface
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
 
@@ -102,7 +102,8 @@ include_directories(
 )
 
 ## Declare a cpp library
-add_library(serial_comm
+add_library(asctec_aci_interface
+   src/AciRemote.cpp
    src/SerialComm.cpp
 )
 
@@ -115,12 +116,12 @@ add_executable(hlp_node src/hlp_node.cpp)
 add_dependencies(hlp_node ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(serial_comm
+target_link_libraries(asctec_aci_interface
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
 )
 target_link_libraries(hlp_node
-  serial_comm
+  asctec_aci_interface
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
 )
@@ -140,7 +141,7 @@ target_link_libraries(hlp_node
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS serial_comm hlp_node
+install(TARGETS asctec_aci_interface hlp_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
