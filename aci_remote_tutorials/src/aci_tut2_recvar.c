@@ -16,6 +16,12 @@ int16_t motor_rpm_1;
 int16_t motor_rpm_2;
 int16_t motor_rpm_3;
 
+u_int16_t wp_nav_status;
+u_int16_t wp_dist_wp;
+
+unsigned short my_test = 0;
+
+
 unsigned char var_getted;
 
 void transmit(void* byte, unsigned short cnt);
@@ -39,8 +45,8 @@ int main(int argc, char *argv[]) {
 	fd = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	struct termios port_settings; // structure to store the port settings in
 
-	cfsetispeed(&port_settings, B57600);    // set baud rates
-	port_settings.c_cflag = B57600 | CS8 | CREAD | CLOCAL;
+	cfsetispeed(&port_settings, B230400);    // set baud rates
+	port_settings.c_cflag = B230400 | CS8 | CREAD | CLOCAL;
 	port_settings.c_iflag = IGNPAR;
 	port_settings.c_oflag = 0;
 	port_settings.c_lflag = 0;
@@ -84,6 +90,10 @@ void *aciThread(void)
 				aciSynchronizeVars();
 				printf("Angles after Synchronizing: %f\t%f\t%f\n---------\n", (double)(angle_pitch)/1000, (double)(angle_roll)/1000 , (double)(angle_yaw)/1000);
 				printf("Motor RPM: %d\t%d\t%d\t%d\n", motor_rpm_0, motor_rpm_1, motor_rpm_2, motor_rpm_3);
+
+				printf("Waypoint navigation status: %d\n", wp_nav_status);
+				printf("Waypoint distance to waypoint: %d\n", wp_dist_wp);
+				printf("my_test: %d\n", my_test);
 			}
 			timecounter=0;
 		}
@@ -102,6 +112,9 @@ void varListUpdateFinished(void) {
 	aciAddContentToVarPacket(0,0x0101,&motor_rpm_1);
 	aciAddContentToVarPacket(0,0x0102,&motor_rpm_2);
 	aciAddContentToVarPacket(0,0x0103,&motor_rpm_3);
+	aciAddContentToVarPacket(0,0x1012,&wp_nav_status);
+	aciAddContentToVarPacket(0,0x1013,&wp_dist_wp);
+	aciAddContentToVarPacket(0,0x1015,&my_test);
 	aciSetVarPacketTransmissionRate(0,10);
 	aciVarPacketUpdateTransmissionRates();
 	aciSendVariablePacketConfiguration(0);

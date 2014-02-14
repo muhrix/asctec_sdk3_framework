@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
 	fd = open("/dev/ttyUSB0", O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 	struct termios port_settings; // structure to store the port settings in
 
-	cfsetispeed(&port_settings, B57600); // set baud rates
-	port_settings.c_cflag = B57600 | CS8 | CREAD | CLOCAL;
+	cfsetispeed(&port_settings, B230400); // set baud rates
+	port_settings.c_cflag = B230400 | CS8 | CREAD | CLOCAL;
 	port_settings.c_iflag = IGNPAR;
 	port_settings.c_oflag = 0;
 	port_settings.c_lflag = 0;
@@ -108,17 +108,17 @@ void *aciThread(void) {
 }
 
 void varListUpdateFinished() {
-	printf("variable list getted!\n");
+	printf("variable list received!\n");
 	var_ready=1;
 }
 
 void cmdListUpdateFinished() {
-	printf("command list getted!\n");
+	printf("command list received!\n");
 	cmd_ready=1;
 }
 
 void paramListUpdateFinished() {
-	printf("parameter list getted!\n");
+	printf("parameter list received!\n");
 	aciAddContentToParamPacket(0,0x0001,&bat);
 	aciSendParameterPacketConfiguration(0);
 }
