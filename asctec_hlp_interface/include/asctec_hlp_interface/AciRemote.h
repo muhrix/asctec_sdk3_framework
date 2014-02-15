@@ -27,6 +27,8 @@ namespace AciRemote {
 //	void transmit(void*, unsigned short);
 //}
 
+//void* aci_obj_ptr;
+
 class AciRemote: protected SerialComm {
 public:
 	//AciRemote(); // default constructor
@@ -44,7 +46,6 @@ private:
 
 	static void transmit(void*, unsigned short);
 
-	void setCallbacks();
 	void versions(struct ACI_INFO);
 	void varListUpdateFinished();
 	void cmdListUpdateFinished();

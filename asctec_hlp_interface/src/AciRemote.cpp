@@ -17,9 +17,12 @@ namespace AciRemote {
 //	}
 //}
 
+void* aci_obj_ptr;
+
 AciRemote::AciRemote(const std::string& port): SerialComm(port),
 		verListRecv_(false), varListRecv_(false), cmdListRecv_(false), parListRecv_(false) {
 
+	aci_obj_ptr = static_cast<void*>(this);
 }
 
 AciRemote::~AciRemote() {
@@ -30,7 +33,8 @@ void AciRemote::Init(int rate, int heartbeat) {
 	boost::mutex::scoped_lock lock(mtx_);
 	aciInit();
 	ROS_INFO("Asctec ACI initialised");
-	aciSetSendDataCallback(&transmit);
+	aciSetSendDataCallback(AciRemote::transmit);
+	//aciInfoPacketReceivedCallback(&versions);
 	//aciSetVarListUpdateFinishedCallback(&varListUpdateFinished);
 	//aciSetCmdListUpdateFinishedCallback(&cmdListUpdateFinished);
 	//aciSetParamListUpdateFinishedCallback(&paramListUpdateFinished);
@@ -38,7 +42,8 @@ void AciRemote::Init(int rate, int heartbeat) {
 }
 
 void AciRemote::transmit(void* bytes, unsigned short len) {
-	txCallback(bytes, len);
+	AciRemote* this_obj = static_cast<AciRemote*>(aci_obj_ptr);
+	this_obj->txCallback(bytes, len);
 }
 
 void AciRemote::versions(struct ACI_INFO) {
