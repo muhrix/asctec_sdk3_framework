@@ -21,22 +21,22 @@
 
 #include <ros/ros.h>
 
-#define SERIAL_PORT_READ_BUF_SIZE 512
+#define SERIAL_PORT_READ_BUF_SIZE 256
 
 class SerialComm {
-	//typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
+	typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
 
 public:
 	//SerialComm(); // default constructor no implemented; must pass string
-	SerialComm(const std::string&);
+	SerialComm(const std::string&, int);
 	// non-copyable class, hence = delete (c++11)
 	//SerialComm(const SerialComm&) = delete;
 	//const SerialComm& operator=(const SerialComm&) = delete;
 	virtual ~SerialComm();
 
 	// methods to be used as callbacks of ACI
-	void txCallback(void*, unsigned short);
-	boost::function<void (const unsigned char*, size_t)> receive;
+	void doWrite(void*, unsigned short);
+	//boost::function<void (const unsigned char*, size_t)> receive;
 
 	//boost::shared_ptr<const boost::system::error_code&> errorStatus() const;
 
@@ -49,16 +49,18 @@ private:
 	const SerialComm& operator=(const SerialComm&);
 
 protected:
-	//SerialPortPtr port_;
-	boost::asio::serial_port port_;
+	SerialPortPtr port_;
+	//boost::asio::serial_port port_;
 	boost::asio::io_service io_service_;
-	//boost::shared_ptr<boost::thread> io_thread_;
+	// TODO: do I really need this thread?! Or is this the one which dies according to gdb?
+	boost::shared_ptr<boost::thread> io_thread_;
 	//boost::shared_ptr<const boost::system::error_code&> io_error_;
 
 	std::string port_name_;
 	uint32_t baud_rate_;
 
-	boost::array<unsigned char, SERIAL_PORT_READ_BUF_SIZE> buffer_;
+	//boost::array<unsigned char, SERIAL_PORT_READ_BUF_SIZE> buffer_;
+	std::vector<unsigned char> read_buffer_;
 
 	bool open_;
 
@@ -72,14 +74,7 @@ protected:
      * Callback called at the end of the asynchronous operation.
      * This callback is called by the io_service in the spawned thread.
      */
-    void readHandler(const boost::system::error_code&, size_t);
-
-    /**
-     * Callback called to start an asynchronous write operation.
-     * If it is already in progress, does nothing.
-     * This callback is called by the io_service in the spawned thread.
-     */
-    void doWrite();
+    virtual void readHandler(const boost::system::error_code&, size_t) = 0;
 
     /**
      * Callback called at the end of an asynchronous write operation,
