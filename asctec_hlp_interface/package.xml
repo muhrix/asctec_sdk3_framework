@@ -46,12 +46,14 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>aci_remote_v100</build_depend>
+  <build_depend>asctec_hlp_comm</build_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>nav_msgs</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>aci_remote_v100</run_depend>
+  <run_depend>asctec_hlp_comm</run_depend>  
 
 
   <!-- The export tag contains other, unspecified, tags -->

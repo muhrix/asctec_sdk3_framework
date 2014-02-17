@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(asctec_hlp_interface)
 
+set(CMAKE_BUILD_TYPE Debug)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -11,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   aci_remote_v100
+  asctec_hlp_comm
 )
 
 ## System dependencies are found with CMake's conventions
@@ -84,7 +87,7 @@ find_package(Boost REQUIRED COMPONENTS system signals thread)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES asctec_aci_interface
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs std_msgs
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs std_msgs aci_remote_v100 asctec_hlp_comm
 #  DEPENDS system_lib
 )
 
