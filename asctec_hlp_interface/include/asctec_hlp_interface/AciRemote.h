@@ -16,6 +16,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/function.hpp>
+#include <boost/bind.hpp>
 
 #include <ros/ros.h>
 #include "aci_remote_v100/asctecDefines.h"
@@ -32,31 +33,48 @@ namespace AciRemote {
 class AciRemote: protected SerialComm {
 public:
 	//AciRemote(); // default constructor
-	AciRemote(const std::string&);
+	AciRemote(const std::string&, int, int, int);
 	// non-copyable class, hence = delete (c++11)
 	//AciRemote(const AciRemote&) = delete;
 	//const AciRemote& operator=(const AciRemote&) = delete;
 	~AciRemote();
 
-	void Init(int, int);
+	int Init();
+
+protected:
+	void checkVersions(struct ACI_INFO);
+	void setupVarPackets();
+	void setupCmdPackets();
+	void setupParPackets();
 
 private:
 	AciRemote(const AciRemote&);
 	const AciRemote& operator=(const AciRemote&);
 
 	static void transmit(void*, unsigned short);
+	static void versions(struct ACI_INFO);
+	static void varListUpdateFinished();
+	static void cmdListUpdateFinished();
+	static void paramListUpdateFinished();
 
-	void versions(struct ACI_INFO);
-	void varListUpdateFinished();
-	void cmdListUpdateFinished();
-	void paramListUpdateFinished();
+	void throttleEngine();
+	void readHandler(const boost::system::error_code&, size_t);
 
-	bool verListRecv_;
-	bool varListRecv_;
-	bool cmdListRecv_;
-	bool parListRecv_;
+	int aci_rate_;
+	int aci_heartbeat_;
+	int bytes_recv_;
 
-	boost::mutex mtx_;
+	bool versions_match_;
+	bool var_list_recv_;
+	bool cmd_list_recv_;
+	bool par_list_recv_;
+
+	volatile bool quit_;
+	volatile bool wait_;
+
+	boost::mutex mtx_, buf_mtx_;
+	boost::condition_variable cond_;
+	boost::shared_ptr<boost::thread> aci_throttle_thread_;
 };
 
 } /* namespace AciRemote */
