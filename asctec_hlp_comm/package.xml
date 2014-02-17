@@ -1,0 +1,32 @@
+<package>
+  <name>asctec_hlp_comm</name>
+  <version>0.1.0</version>
+  <description>This Package contains header files for communication with the HLP on the AscTec Pelican and custom message, server, and action definitions</description>
+  <maintainer email="muhrix@gmail.com">Murilo F. M.</maintainer>
+
+  <license>BSD</license>
+
+  <author>Markus Achtelik</author>
+  <author>Michael Achtelik</author>
+  <author>Stephan Weiss</author>
+  <author>Laurent Kneip</author>
+
+  <!-- Dependencies which this package needs to build itself. -->
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- Dependencies needed to compile this package. -->
+  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <!-- Dependencies needed after this package is compiled. -->
+  <run_depend>actionlib_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
+
+  <export>
+    
+  </export>
+</package>
