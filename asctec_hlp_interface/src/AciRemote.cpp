@@ -49,6 +49,10 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("packet_rate_rcdata_status_motors", rc_status_rate_, 10);
 	n_.param("aci_engine_throttle", aci_rate_, 100);
 	n_.param("aci_heartbeat", aci_heartbeat_, 10);
+	n_.param("stddev_angular_velocity", ang_vel_variance_, 0.013); // taken from experiments
+	n_.param("stddev_linear_acceleration", lin_acc_variance_, 0.083); // taken from experiments
+	ang_vel_variance_ *= ang_vel_variance_;
+	lin_acc_variance_ *= lin_acc_variance_;
 
 	// fetch topic names from ROS parameter server
 	n_.param("imu_topic", imu_topic_, std::string("imu"));
@@ -437,6 +441,9 @@ void AciRemote::publishImuMagData() {
 	sensor_msgs::ImuPtr imu_msg(new sensor_msgs::Imu);
 	asctec_hlp_comm::mav_imuPtr imu_custom_msg(new asctec_hlp_comm::mav_imu);
 	geometry_msgs::Vector3StampedPtr mag_msg(new geometry_msgs::Vector3Stamped);
+	imu_msg->header.frame_id = frame_id_;
+	imu_custom_msg->header.frame_id = frame_id_;
+	mag_msg->header.frame_id = frame_id_;
 	int imu_throttle = 1000 / imu_rate_;
 	static int seq = 0;
 	try {
@@ -447,15 +454,59 @@ void AciRemote::publishImuMagData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, imu_timeout) == false) {
+				ros::Time time_stamp(ros::Time::now());
+				double roll = helper::asctecAttitudeToSI(RO_ALL_Data_.angle_roll);
+				double pitch = helper::asctecAttitudeToSI(RO_ALL_Data_.angle_pitch);
+				double yaw = helper::asctecAttitudeToSI(RO_ALL_Data_.angle_yaw);
+				if (yaw> M_PI) {
+					yaw -= 2.0 * M_PI;
+				}
+				geometry_msgs::Quaternion q;
+				helper::angle2quaternion(roll, pitch, yaw, &q.w, &q.x, &q.y, &q.z);
+
 				// only publish if someone has already subscribed to topics
 				if (imu_pub_.getNumSubscribers() > 0) {
-
+					imu_msg->header.stamp = time_stamp;
+					imu_msg->header.seq = seq;
+					imu_msg->linear_acceleration.x = helper::asctecAccToSI(RO_ALL_Data_.acc_x);
+					imu_msg->linear_acceleration.y = helper::asctecAccToSI(RO_ALL_Data_.acc_y);
+					imu_msg->linear_acceleration.z = helper::asctecAccToSI(RO_ALL_Data_.acc_z);
+					imu_msg->angular_velocity.x = helper::asctecAccToSI(RO_ALL_Data_.angle_roll);
+					imu_msg->angular_velocity.y = helper::asctecAccToSI(RO_ALL_Data_.angle_pitch);
+					imu_msg->angular_velocity.z = helper::asctecAccToSI(RO_ALL_Data_.angle_yaw);
+					imu_msg->orientation = q;
+					helper::setDiagonalCovariance(imu_msg->angular_velocity_covariance,
+							ang_vel_variance_);
+					helper::setDiagonalCovariance(imu_msg->linear_acceleration_covariance,
+							lin_acc_variance_);
+					imu_pub_.publish(imu_msg);
 				}
 				if (imu_custom_pub_.getNumSubscribers() > 0) {
-
+					double height = static_cast<double>(RO_ALL_Data_.fusion_height) * 0.001;
+					double dheight = static_cast<double>(RO_ALL_Data_.fusion_dheight) * 0.001;
+					imu_custom_msg->header.stamp = time_stamp;
+					imu_custom_msg->header.seq = seq;
+					imu_custom_msg->acceleration.x = helper::asctecAccToSI(RO_ALL_Data_.acc_x);
+					imu_custom_msg->acceleration.y = helper::asctecAccToSI(RO_ALL_Data_.acc_y);
+					imu_custom_msg->acceleration.z = helper::asctecAccToSI(RO_ALL_Data_.acc_z);
+					imu_custom_msg->angular_velocity.x =
+							helper::asctecAccToSI(RO_ALL_Data_.angle_roll);
+					imu_custom_msg->angular_velocity.y =
+							helper::asctecAccToSI(RO_ALL_Data_.angle_pitch);
+					imu_custom_msg->angular_velocity.z =
+							helper::asctecAccToSI(RO_ALL_Data_.angle_yaw);
+					imu_custom_msg->height = height;
+					imu_custom_msg->differential_height = dheight;
+					imu_custom_msg->orientation = q;
+					imu_custom_pub_.publish(imu_custom_msg);
 				}
 				if (mag_pub_.getNumSubscribers() > 0) {
-
+					mag_msg->header.stamp = time_stamp;
+					mag_msg->header.seq = seq;
+					mag_msg->vector.x = static_cast<double>(RO_ALL_Data_.Hx);
+					mag_msg->vector.y = static_cast<double>(RO_ALL_Data_.Hy);
+					mag_msg->vector.z = static_cast<double>(RO_ALL_Data_.Hz);
+					mag_pub_.publish(mag_msg);
 				}
 			}
 			++seq;
@@ -469,6 +520,8 @@ void AciRemote::publishImuMagData() {
 void AciRemote::publishGpsData() {
 	sensor_msgs::NavSatFixPtr gps_msg(new sensor_msgs::NavSatFix);
 	asctec_hlp_comm::GpsCustomPtr gps_custom_msg(new asctec_hlp_comm::GpsCustom);
+	gps_msg->header.frame_id = frame_id_;
+	gps_custom_msg->header.frame_id = frame_id_;
 	int gps_throttle = 1000 / gps_rate_;
 	static int seq = 0;
 	try {
@@ -479,12 +532,72 @@ void AciRemote::publishGpsData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, gps_timeout) == false) {
+				ros::Time time_stamp(ros::Time::now());
+				// TODO: check covariance
+				double var_h, var_v;
+				var_h = static_cast<double>(RO_ALL_Data_.GPS_position_accuracy) * 1.0e-3 / 3.0;
+				var_v = static_cast<double>(RO_ALL_Data_.GPS_height_accuracy) * 1.0e-3 / 3.0;
+				var_h *= var_h;
+				var_v *= var_v;
 				// only publish if someone has already subscribed to topics
 				if (gps_pub_.getNumSubscribers() > 0) {
+					gps_msg->header.stamp = time_stamp;
+					gps_msg->header.seq = seq;
+					gps_msg->latitude = static_cast<double>(RO_ALL_Data_.GPS_latitude) * 1.0e-7;
+					gps_msg->longitude = static_cast<double>(RO_ALL_Data_.GPS_longitude) * 1.0e-7;
+					gps_msg->altitude = static_cast<double>(RO_ALL_Data_.GPS_height) * 1.0e-3;
+					gps_msg->position_covariance[0] = var_h;
+					gps_msg->position_covariance[4] = var_h;
+					gps_msg->position_covariance[8] = var_v;
+					gps_msg->position_covariance_type =
+							sensor_msgs::NavSatFix::COVARIANCE_TYPE_APPROXIMATED;
 
+					gps_msg->status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
+					// bit 0: GPS lock
+					if (RO_ALL_Data_.GPS_status & 0x01)
+						gps_msg->status.status =
+								sensor_msgs::NavSatStatus::STATUS_FIX;
+					else
+						gps_msg->status.status =
+								sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+					gps_pub_.publish(gps_msg);
 				}
 				if (gps_custom_pub_.getNumSubscribers() > 0) {
+					gps_custom_msg->header.stamp = time_stamp;
+					gps_custom_msg->header.seq = seq;
+					gps_custom_msg->latitude =
+							static_cast<double>(RO_ALL_Data_.fusion_latitude) * 1.0e-7;
+					gps_custom_msg->longitude =
+							static_cast<double>(RO_ALL_Data_.fusion_longitude) * 1.0e-7;
+					gps_custom_msg->altitude =
+							static_cast<double>(RO_ALL_Data_.GPS_height) * 1.0e-7;
+					gps_custom_msg->position_covariance[0] = var_h;
+					gps_custom_msg->position_covariance[4] = var_h;
+					gps_custom_msg->position_covariance[8] = var_v;
+					gps_custom_msg->position_covariance_type =
+							sensor_msgs::NavSatFix::COVARIANCE_TYPE_APPROXIMATED;
+					gps_custom_msg->velocity_x =
+							static_cast<double>(RO_ALL_Data_.GPS_speed_x) * 1.0e-3;
+					gps_custom_msg->velocity_y =
+							static_cast<double>(RO_ALL_Data_.GPS_speed_y) * 1.0e-3;
+					gps_custom_msg->pressure_height =
+							static_cast<double>(RO_ALL_Data_.fusion_height) * 1.0e-3;
+					// TODO: check covariance
+					double var_vel =
+							static_cast<double>(RO_ALL_Data_.GPS_speed_accuracy) * 1.0e-3 / 3.0;
+					var_vel *= var_vel;
+					gps_custom_msg->velocity_covariance[0] = var_vel;
+					gps_custom_msg->velocity_covariance[3] = var_vel;
 
+					gps_custom_msg->status.service = sensor_msgs::NavSatStatus::SERVICE_GPS;
+					// bit 0: GPS lock
+					if (RO_ALL_Data_.GPS_status & 0x01)
+						gps_custom_msg->status.status =
+								sensor_msgs::NavSatStatus::STATUS_FIX;
+					else
+						gps_custom_msg->status.status =
+								sensor_msgs::NavSatStatus::STATUS_NO_FIX;
+					gps_custom_pub_.publish(gps_custom_msg);
 				}
 			}
 			++seq;
@@ -512,25 +625,30 @@ void AciRemote::publishStatusMotorsRcData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, status_timeout) == false) {
+				ros::Time time_stamp(ros::Time::now());
 				// only publish if someone has already subscribed to topics
 				if (rcdata_pub_.getNumSubscribers() > 0) {
-					rcdata_msg->header.stamp = ros::Time(ros::Time::now());
+					rcdata_msg->header.stamp = time_stamp;
 					rcdata_msg->header.seq = seq;
-					for (int i = 0; i < 8; ++i) {
+					for (int i = 0; i < NUM_RC_CHANNELS; ++i) {
 						rcdata_msg->channel[i] = RO_ALL_Data_.channel[i];
 					}
 					rcdata_pub_.publish(rcdata_msg);
 				}
 				if (status_pub_.getNumSubscribers() > 0) {
-					//status_msg->header.stamp = ros::Time(ros::Time::now());
-					//status_msg->header.seq = seq;
-
-					//status_msg->battery_voltage = float(RO_ALL_Data_.battery_voltage) * 0.001;
+					// TODO: I am not happy about this status message; review and change it
+//					status_msg->header.stamp = time_stamp;
+//					status_msg->header.seq = seq;
+//					status_msg->flight_time = static_cast<float>(RO_ALL_Data_.flight_time);
+//					status_msg->cpu_load = static_cast<float>(RO_ALL_Data_.HL_cpu_load);
+//					status_msg->
+//					status_msg->battery_voltage =
+//							static_cast<float>(RO_ALL_Data_.battery_voltage) * 0.001;
 				}
 				if (motor_pub_.getNumSubscribers() > 0) {
-					motor_msg->header.stamp = ros::Time(ros::Time::now());
+					motor_msg->header.stamp = time_stamp;
 					motor_msg->header.seq = seq;
-					for (int i = 0; i < 6; ++i) {
+					for (int i = 0; i < NUM_MOTORS; ++i) {
 						motor_msg->motor_speed[i] = RO_ALL_Data_.motor_rpm[i];
 					}
 					motor_pub_.publish(motor_msg);
