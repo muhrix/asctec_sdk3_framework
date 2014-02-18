@@ -59,6 +59,8 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("rcdata_topic", rcdata_topic_, std::string("rcdata"));
 	n_.param("status_topic", status_topic_, std::string("status"));
 	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
+
+	// TODO: Initialise Asctec SDK3 data structures!!!
 }
 
 AciRemote::~AciRemote() {
@@ -208,67 +210,70 @@ void AciRemote::checkVersions(struct ACI_INFO aciInfo) {
 
 void AciRemote::setupVarPackets() {
 	ROS_INFO("Received variables list from HLP");
-
 	// setup variables packets to be received
 	// along with reception rate (not more than ACI Engine rate)
 
 	// packet ID 0 containing: status, motor speed and RC data
 	// status data
-	aciAddContentToVarPacket(0, 0x0001, &RO_ALL_Data.UAV_status);
-	aciAddContentToVarPacket(0, 0x0002, &RO_ALL_Data.flight_time);
-	aciAddContentToVarPacket(0, 0x0003, &RO_ALL_Data.battery_voltage);
-	aciAddContentToVarPacket(0, 0x0004, &RO_ALL_Data.HL_cpu_load);
-	aciAddContentToVarPacket(0, 0x0005, &RO_ALL_Data.HL_up_time);
+	aciAddContentToVarPacket(0, 0x0001, &RO_ALL_Data_.UAV_status);
+	aciAddContentToVarPacket(0, 0x0002, &RO_ALL_Data_.flight_time);
+	aciAddContentToVarPacket(0, 0x0003, &RO_ALL_Data_.battery_voltage);
+	aciAddContentToVarPacket(0, 0x0004, &RO_ALL_Data_.HL_cpu_load);
+	aciAddContentToVarPacket(0, 0x0005, &RO_ALL_Data_.HL_up_time);
 	// motor speed data
-	aciAddContentToVarPacket(0, 0x0100, &RO_ALL_Data.motor_rpm[0]);
-	aciAddContentToVarPacket(0, 0x0101, &RO_ALL_Data.motor_rpm[1]);
-	aciAddContentToVarPacket(0, 0x0102, &RO_ALL_Data.motor_rpm[2]);
-	aciAddContentToVarPacket(0, 0x0103, &RO_ALL_Data.motor_rpm[3]);
+	aciAddContentToVarPacket(0, 0x0100, &RO_ALL_Data_.motor_rpm[0]);
+	aciAddContentToVarPacket(0, 0x0101, &RO_ALL_Data_.motor_rpm[1]);
+	aciAddContentToVarPacket(0, 0x0102, &RO_ALL_Data_.motor_rpm[2]);
+	aciAddContentToVarPacket(0, 0x0103, &RO_ALL_Data_.motor_rpm[3]);
 	// Rc data
-	aciAddContentToVarPacket(0, 0x0600, &RO_ALL_Data.channel[0]);
-	aciAddContentToVarPacket(0, 0x0601, &RO_ALL_Data.channel[1]);
-	aciAddContentToVarPacket(0, 0x0602, &RO_ALL_Data.channel[2]);
-	aciAddContentToVarPacket(0, 0x0603, &RO_ALL_Data.channel[3]);
-	aciAddContentToVarPacket(0, 0x0604, &RO_ALL_Data.channel[4]);
-	aciAddContentToVarPacket(0, 0x0605, &RO_ALL_Data.channel[5]);
-	aciAddContentToVarPacket(0, 0x0606, &RO_ALL_Data.channel[6]);
-	aciAddContentToVarPacket(0, 0x0607, &RO_ALL_Data.channel[7]);
+	aciAddContentToVarPacket(0, 0x0600, &RO_ALL_Data_.channel[0]);
+	aciAddContentToVarPacket(0, 0x0601, &RO_ALL_Data_.channel[1]);
+	aciAddContentToVarPacket(0, 0x0602, &RO_ALL_Data_.channel[2]);
+	aciAddContentToVarPacket(0, 0x0603, &RO_ALL_Data_.channel[3]);
+	aciAddContentToVarPacket(0, 0x0604, &RO_ALL_Data_.channel[4]);
+	aciAddContentToVarPacket(0, 0x0605, &RO_ALL_Data_.channel[5]);
+	aciAddContentToVarPacket(0, 0x0606, &RO_ALL_Data_.channel[6]);
+	aciAddContentToVarPacket(0, 0x0607, &RO_ALL_Data_.channel[7]);
 
 	// packet ID 1 containing: GPS data
-	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data.GPS_latitude);
-	aciAddContentToVarPacket(1, 0x0107, &RO_ALL_Data.GPS_longitude);
-	aciAddContentToVarPacket(1, 0x0108, &RO_ALL_Data.GPS_height);
-	aciAddContentToVarPacket(1, 0x0109, &RO_ALL_Data.GPS_speed_x);
-	aciAddContentToVarPacket(1, 0x010A, &RO_ALL_Data.GPS_speed_y);
-	aciAddContentToVarPacket(1, 0x010B, &RO_ALL_Data.GPS_heading);
-	aciAddContentToVarPacket(1, 0x010C, &RO_ALL_Data.GPS_position_accuracy);
-	aciAddContentToVarPacket(1, 0x010D, &RO_ALL_Data.GPS_height_accuracy);
-	aciAddContentToVarPacket(1, 0x010E, &RO_ALL_Data.GPS_speed_accuracy);
-	aciAddContentToVarPacket(1, 0x010F, &RO_ALL_Data.GPS_sat_num);
-	aciAddContentToVarPacket(1, 0x0110, &RO_ALL_Data.GPS_status);
-	aciAddContentToVarPacket(1, 0x0111, &RO_ALL_Data.GPS_time_of_week);
-	aciAddContentToVarPacket(1, 0x0112, &RO_ALL_Data.GPS_week);
-	aciAddContentToVarPacket(1, 0x0303, &RO_ALL_Data.fusion_latitude);
-	aciAddContentToVarPacket(1, 0x0304, &RO_ALL_Data.fusion_longitude);
-	aciAddContentToVarPacket(1, 0x0305, &RO_ALL_Data.fusion_height);
-	aciAddContentToVarPacket(1, 0x0306, &RO_ALL_Data.fusion_dheight);
-	aciAddContentToVarPacket(1, 0x0307, &RO_ALL_Data.fusion_speed_x);
-	aciAddContentToVarPacket(1, 0x0308, &RO_ALL_Data.fusion_speed_y);
+	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data_.GPS_latitude);
+	aciAddContentToVarPacket(1, 0x0107, &RO_ALL_Data_.GPS_longitude);
+	aciAddContentToVarPacket(1, 0x0108, &RO_ALL_Data_.GPS_height);
+	aciAddContentToVarPacket(1, 0x0109, &RO_ALL_Data_.GPS_speed_x);
+	aciAddContentToVarPacket(1, 0x010A, &RO_ALL_Data_.GPS_speed_y);
+	aciAddContentToVarPacket(1, 0x010B, &RO_ALL_Data_.GPS_heading);
+	aciAddContentToVarPacket(1, 0x010C, &RO_ALL_Data_.GPS_position_accuracy);
+	aciAddContentToVarPacket(1, 0x010D, &RO_ALL_Data_.GPS_height_accuracy);
+	aciAddContentToVarPacket(1, 0x010E, &RO_ALL_Data_.GPS_speed_accuracy);
+	aciAddContentToVarPacket(1, 0x010F, &RO_ALL_Data_.GPS_sat_num);
+	aciAddContentToVarPacket(1, 0x0110, &RO_ALL_Data_.GPS_status);
+	aciAddContentToVarPacket(1, 0x0111, &RO_ALL_Data_.GPS_time_of_week);
+	aciAddContentToVarPacket(1, 0x0112, &RO_ALL_Data_.GPS_week);
+	aciAddContentToVarPacket(1, 0x0303, &RO_ALL_Data_.fusion_latitude);
+	aciAddContentToVarPacket(1, 0x0304, &RO_ALL_Data_.fusion_longitude);
+	aciAddContentToVarPacket(1, 0x0305, &RO_ALL_Data_.fusion_height);
+	aciAddContentToVarPacket(1, 0x0306, &RO_ALL_Data_.fusion_dheight);
+	aciAddContentToVarPacket(1, 0x0307, &RO_ALL_Data_.fusion_speed_x);
+	aciAddContentToVarPacket(1, 0x0308, &RO_ALL_Data_.fusion_speed_y);
+	// TODO: double check whether the variables below are really necessary
+	// TODO: use 0x100C and 0x100D below (should change HLP firmware as well)
+	aciAddContentToVarPacket(1, 0x1012, &wpCtrlNavStatus_);
+	aciAddContentToVarPacket(1, 0x1013, &wpCtrlDistToWp_);
 
 
 	// packet ID 2 containing: IMU + magnetometer
-	aciAddContentToVarPacket(2, 0x0200, &RO_ALL_Data.angvel_pitch);
-	aciAddContentToVarPacket(2, 0x0201, &RO_ALL_Data.angvel_roll);
-	aciAddContentToVarPacket(2, 0x0202, &RO_ALL_Data.angvel_yaw);
-	aciAddContentToVarPacket(2, 0x0203, &RO_ALL_Data.acc_x);
-	aciAddContentToVarPacket(2, 0x0204, &RO_ALL_Data.acc_y);
-	aciAddContentToVarPacket(2, 0x0205, &RO_ALL_Data.acc_z);
-	aciAddContentToVarPacket(2, 0x0206, &RO_ALL_Data.Hx);
-	aciAddContentToVarPacket(2, 0x0207, &RO_ALL_Data.Hy);
-	aciAddContentToVarPacket(2, 0x0208, &RO_ALL_Data.Hz);
-	aciAddContentToVarPacket(2, 0x0300, &RO_ALL_Data.angle_pitch);
-	aciAddContentToVarPacket(2, 0x0301, &RO_ALL_Data.angle_roll);
-	aciAddContentToVarPacket(2, 0x0302, &RO_ALL_Data.angle_yaw);
+	aciAddContentToVarPacket(2, 0x0200, &RO_ALL_Data_.angvel_pitch);
+	aciAddContentToVarPacket(2, 0x0201, &RO_ALL_Data_.angvel_roll);
+	aciAddContentToVarPacket(2, 0x0202, &RO_ALL_Data_.angvel_yaw);
+	aciAddContentToVarPacket(2, 0x0203, &RO_ALL_Data_.acc_x);
+	aciAddContentToVarPacket(2, 0x0204, &RO_ALL_Data_.acc_y);
+	aciAddContentToVarPacket(2, 0x0205, &RO_ALL_Data_.acc_z);
+	aciAddContentToVarPacket(2, 0x0206, &RO_ALL_Data_.Hx);
+	aciAddContentToVarPacket(2, 0x0207, &RO_ALL_Data_.Hy);
+	aciAddContentToVarPacket(2, 0x0208, &RO_ALL_Data_.Hz);
+	aciAddContentToVarPacket(2, 0x0300, &RO_ALL_Data_.angle_pitch);
+	aciAddContentToVarPacket(2, 0x0301, &RO_ALL_Data_.angle_roll);
+	aciAddContentToVarPacket(2, 0x0302, &RO_ALL_Data_.angle_yaw);
 
 	// set transmission rate for packets, update and send configuration
 	aciSetVarPacketTransmissionRate(0, rc_status_rate_);
@@ -285,6 +290,44 @@ void AciRemote::setupVarPackets() {
 
 void AciRemote::setupCmdPackets() {
 	ROS_INFO("Received commands list from HLP");
+	// setup commands packets to be sent over to the HLP
+	// along with configuration to whether or not receive ACK
+
+	// packet ID 0 containing: control mode
+	aciAddContentToCmdPacket(0, 0x0600, &WO_SDK_.ctrl_mode);
+	aciAddContentToCmdPacket(0, 0x0601, &WO_SDK_.ctrl_enabled);
+	aciAddContentToCmdPacket(0, 0x0602, &WO_SDK_.disable_motor_onoff_by_stick);
+
+	// packet ID 1 containing: DMC + CTRL -- direct individual motor control not used here
+	aciAddContentToCmdPacket(1, 0x0506, &WO_DMC_.pitch);
+	aciAddContentToCmdPacket(1, 0x0507, &WO_DMC_.roll);
+	aciAddContentToCmdPacket(1, 0x0508, &WO_DMC_.yaw);
+	aciAddContentToCmdPacket(1, 0x0509, &WO_DMC_.thrust);
+	aciAddContentToCmdPacket(1, 0x050A, &WO_CTRL_.pitch);
+	aciAddContentToCmdPacket(1, 0x050B, &WO_CTRL_.roll);
+	aciAddContentToCmdPacket(1, 0x050C, &WO_CTRL_.yaw);
+	aciAddContentToCmdPacket(1, 0x050D, &WO_CTRL_.thrust);
+	aciAddContentToCmdPacket(1, 0x050E, &WO_CTRL_.ctrl);
+
+	// packet ID 2 containing: single waypoint data structure
+	aciAddContentToCmdPacket(2, 0x1001, &WO_wpToLL_.wp_activated);
+	aciAddContentToCmdPacket(2, 0x1002, &WO_wpToLL_.properties);
+	aciAddContentToCmdPacket(2, 0x1003, &WO_wpToLL_.max_speed);
+	aciAddContentToCmdPacket(2, 0x1004, &WO_wpToLL_.time);
+	aciAddContentToCmdPacket(2, 0x1005, &WO_wpToLL_.pos_acc);
+	aciAddContentToCmdPacket(2, 0x1006, &WO_wpToLL_.chksum);
+	aciAddContentToCmdPacket(2, 0x1007, &WO_wpToLL_.X);
+	aciAddContentToCmdPacket(2, 0x1008, &WO_wpToLL_.Y);
+	aciAddContentToCmdPacket(2, 0x1009, &WO_wpToLL_.yaw);
+	// TODO: use 0x100A and 0x100B below (should change HLP firmware as well)
+	aciAddContentToCmdPacket(2, 0x1010, &WO_wpToLL_.height);
+	aciAddContentToCmdPacket(2, 0x1011, &wpCtrlWpCmd_);
+
+	// set whether or not should receive ACK, and send configuration
+	aciSendCommandPacketConfiguration(0, 1); // control mode must be set with ACK
+	aciSendCommandPacketConfiguration(1, 0);
+	aciSendCommandPacketConfiguration(2, 0);
+
 	boost::mutex::scoped_lock lock(mtx_);
 	cmd_list_recv_ = true;
 }
