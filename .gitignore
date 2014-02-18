@@ -2,3 +2,12 @@
 .cproject
 .project
 .pydevproject
+*.lst
+*.bin
+*.hex
+*.o
+*.lss
+*.map
+*.sym
+*.elf
+*.exe
