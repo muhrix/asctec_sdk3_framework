@@ -359,6 +359,8 @@ struct WAYPOINT { //waypoint definition
 #define WP_NAVSTAT_20M					0x04 	//vehicle within a 20m radius of the waypoint
 #define WP_NAVSTAT_PILOT_ABORT			0x08	//waypoint navigation aborted by safety pilot (any stick was moved)
 
-
+// other defines exclusively used by AciRemote class
+#define NUM_MOTORS						4
+#define NUM_RC_CHANNELS					8
 
 #endif /* ASCTECSDK3_H_ */
