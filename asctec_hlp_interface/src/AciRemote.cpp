@@ -487,6 +487,9 @@ void AciRemote::publishStatusMotorsRcData() {
 	asctec_hlp_comm::mav_rcdataPtr rcdata_msg(new asctec_hlp_comm::mav_rcdata);
 	asctec_hlp_comm::mav_statusPtr status_msg(new asctec_hlp_comm::mav_status);
 	asctec_hlp_comm::MotorSpeedPtr motor_msg(new asctec_hlp_comm::MotorSpeed);
+	rcdata_msg->header.frame_id = frame_id_;
+	status_msg->header.frame_id = frame_id_;
+	motor_msg->header.frame_id = frame_id_;
 	int status_throttle = 1000 / rc_status_rate_;
 	static int seq = 0;
 	try {
@@ -497,14 +500,28 @@ void AciRemote::publishStatusMotorsRcData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 			// only publish if someone has already subscribed to topics
 			if (rcdata_pub_.getNumSubscribers() > 0) {
-
+				rcdata_msg->header.stamp = ros::Time(ros::Time::now());
+				rcdata_msg->header.seq = seq;
+				for (int i = 0; i < 8; ++i) {
+					rcdata_msg->channel[i] = RO_ALL_Data_.channel[i];
+				}
+				rcdata_pub_.publish(rcdata_msg);
 			}
 			if (status_pub_.getNumSubscribers() > 0) {
+				//status_msg->header.stamp = ros::Time(ros::Time::now());
+				//status_msg->header.seq = seq;
 
+				//status_msg->battery_voltage = float(RO_ALL_Data_.battery_voltage) * 0.001;
 			}
 			if (motor_pub_.getNumSubscribers() > 0) {
-
+				motor_msg->header.stamp = ros::Time(ros::Time::now());
+				motor_msg->header.seq = seq;
+				for (int i = 0; i < 6; ++i) {
+					motor_msg->motor_speed[i] = RO_ALL_Data_.motor_rpm[i];
+				}
+				motor_pub_.publish(motor_msg);
 			}
+			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
