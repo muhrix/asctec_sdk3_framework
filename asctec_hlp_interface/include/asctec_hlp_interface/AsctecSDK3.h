@@ -199,7 +199,6 @@ struct RO_RC_DATA {
 	 * range of each channel: 0..4095
 	 */
 };
-extern struct RO_RC_DATA RO_RC_Data;
 
 
 
