@@ -108,28 +108,29 @@ private:
 	boost::shared_ptr<boost::thread> rc_status_thread_;
 
 	// Asctec SDK 3.0 data structures
-	struct WO_SDK_STRUCT WO_SDK;
-	struct RO_ALL_DATA RO_ALL_Data;
-	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_Direct_Individual_Motor_Control;
-	struct WO_DIRECT_MOTOR_CONTROL WO_Direct_Motor_Control;
-	struct WO_CTRL_INPUT WO_CTRL_Input;
-	struct WAYPOINT WO_wpToLL;
+	struct WO_SDK_STRUCT WO_SDK_;
+	struct RO_ALL_DATA RO_ALL_Data_;
+	struct RO_RC_DATA RO_RC_Data_;
+	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;
+	struct WO_DIRECT_MOTOR_CONTROL WO_DMC_;
+	struct WO_CTRL_INPUT WO_CTRL_;
+	struct WAYPOINT WO_wpToLL_;
 
 	// Asctec SDK 3.0 variables
 	//choose actual waypoint command from WP_CMD_* defines
-	unsigned char wpCtrlWpCmd;
+	unsigned char wpCtrlWpCmd_;
 	//send current waypoint command to LLP
-	unsigned char wpCtrlWpCmdUpdated;
+	unsigned char wpCtrlWpCmdUpdated_;
 	//acknowledge from LL processor that waypoint was accepted
-	unsigned char wpCtrlAckTrigger;
+	unsigned char wpCtrlAckTrigger_;
 	//check navigation status with WP_NAVSTAT_* defines
-	unsigned short wpCtrlNavStatus;
+	unsigned short wpCtrlNavStatus_;
 	//current distance to the current waypoint in dm (=10 cm)
-	unsigned short wpCtrlDistToWp;
+	unsigned short wpCtrlDistToWp_;
 
 	//emergency mode variables
-	unsigned char emergencyMode;
-	unsigned char emergencyModeUpdate;
+	unsigned char emergencyMode_;
+	unsigned char emergencyModeUpdate_;
 };
 
 } /* namespace AciRemote */
