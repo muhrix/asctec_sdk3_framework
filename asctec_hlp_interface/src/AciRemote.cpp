@@ -284,6 +284,8 @@ void AciRemote::setupVarPackets() {
 	aciSendVariablePacketConfiguration(1);
 	aciSendVariablePacketConfiguration(2);
 
+	ROS_INFO_STREAM("Variables packets configured");
+
 	boost::mutex::scoped_lock lock(mtx_);
 	var_list_recv_ = true;
 }
@@ -327,6 +329,13 @@ void AciRemote::setupCmdPackets() {
 	aciSendCommandPacketConfiguration(0, 1); // control mode must be set with ACK
 	aciSendCommandPacketConfiguration(1, 0);
 	aciSendCommandPacketConfiguration(2, 0);
+
+	// send commands to HLP (DANGER: make sure data structures were properly initialised)
+	aciUpdateCmdPacket(0);
+	aciUpdateCmdPacket(1);
+	aciUpdateCmdPacket(2);
+
+	ROS_INFO_STREAM("Commands packets configured");
 
 	boost::mutex::scoped_lock lock(mtx_);
 	cmd_list_recv_ = true;
@@ -421,11 +430,11 @@ void AciRemote::throttleEngine() {
 }
 
 void AciRemote::publishImuMagData() {
-	sensor_msgs::Imu imu_msg;
-	asctec_hlp_comm::mav_imu imu_custom_msg;
-	geometry_msgs::Vector3Stamped mag_msg;
+	sensor_msgs::ImuPtr imu_msg(new sensor_msgs::Imu);
+	asctec_hlp_comm::mav_imuPtr imu_custom_msg(new asctec_hlp_comm::mav_imu);
+	geometry_msgs::Vector3StampedPtr mag_msg(new geometry_msgs::Vector3Stamped);
 	int imu_throttle = 1000 / imu_rate_;
-
+	static int seq = 0;
 	try {
 		for (;;) {
 			boost::system_time const throttle_timeout =
@@ -450,10 +459,10 @@ void AciRemote::publishImuMagData() {
 }
 
 void AciRemote::publishGpsData() {
-	sensor_msgs::NavSatFix gps_msg;
-	asctec_hlp_comm::GpsCustom gps_custom_msg;
+	sensor_msgs::NavSatFixPtr gps_msg(new sensor_msgs::NavSatFix);
+	asctec_hlp_comm::GpsCustomPtr gps_custom_msg(new asctec_hlp_comm::GpsCustom);
 	int gps_throttle = 1000 / gps_rate_;
-
+	static int seq = 0;
 	try {
 		for (;;) {
 			boost::system_time const throttle_timeout =
@@ -475,11 +484,11 @@ void AciRemote::publishGpsData() {
 }
 
 void AciRemote::publishStatusMotorsRcData() {
-	asctec_hlp_comm::mav_rcdata rcdata_msg;
-	asctec_hlp_comm::mav_status status_msg;
-	asctec_hlp_comm::MotorSpeed motor_msg;
+	asctec_hlp_comm::mav_rcdataPtr rcdata_msg(new asctec_hlp_comm::mav_rcdata);
+	asctec_hlp_comm::mav_statusPtr status_msg(new asctec_hlp_comm::mav_status);
+	asctec_hlp_comm::MotorSpeedPtr motor_msg(new asctec_hlp_comm::MotorSpeed);
 	int status_throttle = 1000 / rc_status_rate_;
-
+	static int seq = 0;
 	try {
 		for (;;) {
 			boost::system_time const throttle_timeout =
