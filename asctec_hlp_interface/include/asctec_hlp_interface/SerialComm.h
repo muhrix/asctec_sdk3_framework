@@ -27,8 +27,8 @@ class SerialComm {
 	typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
 
 public:
-	//SerialComm(); // default constructor no implemented; must pass string
-	SerialComm(const std::string&, int);
+	SerialComm(); // default constructor
+	//SerialComm(const std::string&, int);
 	// non-copyable class, hence = delete (c++11)
 	//SerialComm(const SerialComm&) = delete;
 	//const SerialComm& operator=(const SerialComm&) = delete;
@@ -57,7 +57,7 @@ protected:
 	//boost::shared_ptr<const boost::system::error_code&> io_error_;
 
 	std::string port_name_;
-	uint32_t baud_rate_;
+	int baud_rate_;
 
 	//boost::array<unsigned char, SERIAL_PORT_READ_BUF_SIZE> buffer_;
 	std::vector<unsigned char> read_buffer_;

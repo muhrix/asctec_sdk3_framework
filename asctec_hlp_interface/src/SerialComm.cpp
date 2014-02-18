@@ -9,9 +9,7 @@
 
 #include "asctec_hlp_interface/SerialComm.h"
 
-SerialComm::SerialComm(const std::string& port, int baud):
-	port_name_(port), baud_rate_(baud), open_(false) {
-
+SerialComm::SerialComm(): port_name_("/dev/ttyUSB0"), baud_rate_(230400), open_(false) {
 	read_buffer_.assign(SERIAL_PORT_READ_BUF_SIZE, 0);
 }
 
