@@ -75,6 +75,8 @@ AciRemote::~AciRemote() {
 	gps_thread_->join();
 	rc_status_thread_->join();
 
+	ROS_INFO("All threads have shutdown");
+
 	// assign NULL to global object pointer
 	aci_obj_ptr = static_cast<void*>(NULL);
 }
@@ -159,6 +161,8 @@ int AciRemote::advertiseRosTopics() {
 			catch (boost::system::system_error::exception& e) {
 				ROS_ERROR_STREAM("Could not create Status publisher thread. " << e.what());
 			}
+
+			cond_any_.notify_all();
 
 			return 0;
 		}
@@ -425,7 +429,7 @@ void AciRemote::throttleEngine() {
 		}
 	}
 	catch (boost::thread_interrupted const&) {
-
+		ROS_INFO("throttleEngine() thread interrupted");
 	}
 }
 
@@ -437,24 +441,28 @@ void AciRemote::publishImuMagData() {
 	static int seq = 0;
 	try {
 		for (;;) {
-			boost::system_time const throttle_timeout =
+			boost::system_time const imu_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(imu_throttle);
 			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
-			// only publish if someone has already subscribed to topics
-			if (imu_pub_.getNumSubscribers() > 0) {
 
-			}
-			if (imu_custom_pub_.getNumSubscribers() > 0) {
+			if (cond_any_.timed_wait(s_lock, imu_timeout) == false) {
+				// only publish if someone has already subscribed to topics
+				if (imu_pub_.getNumSubscribers() > 0) {
 
-			}
-			if (mag_pub_.getNumSubscribers() > 0) {
+				}
+				if (imu_custom_pub_.getNumSubscribers() > 0) {
 
+				}
+				if (mag_pub_.getNumSubscribers() > 0) {
+
+				}
 			}
+			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
-
+		ROS_INFO("publishImuMagData() thread interrupted");
 	}
 }
 
@@ -465,21 +473,25 @@ void AciRemote::publishGpsData() {
 	static int seq = 0;
 	try {
 		for (;;) {
-			boost::system_time const throttle_timeout =
+			boost::system_time const gps_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(gps_throttle);
 			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
-			// only publish if someone has already subscribed to topics
-			if (gps_pub_.getNumSubscribers() > 0) {
 
-			}
-			if (gps_custom_pub_.getNumSubscribers() > 0) {
+			if (cond_any_.timed_wait(s_lock, gps_timeout) == false) {
+				// only publish if someone has already subscribed to topics
+				if (gps_pub_.getNumSubscribers() > 0) {
 
+				}
+				if (gps_custom_pub_.getNumSubscribers() > 0) {
+
+				}
 			}
+			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
-
+		ROS_INFO("publishGpsData() thread interrupted");
 	}
 }
 
@@ -494,38 +506,41 @@ void AciRemote::publishStatusMotorsRcData() {
 	static int seq = 0;
 	try {
 		for (;;) {
-			boost::system_time const throttle_timeout =
+			boost::system_time const status_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(status_throttle);
 			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
-			// only publish if someone has already subscribed to topics
-			if (rcdata_pub_.getNumSubscribers() > 0) {
-				rcdata_msg->header.stamp = ros::Time(ros::Time::now());
-				rcdata_msg->header.seq = seq;
-				for (int i = 0; i < 8; ++i) {
-					rcdata_msg->channel[i] = RO_ALL_Data_.channel[i];
-				}
-				rcdata_pub_.publish(rcdata_msg);
-			}
-			if (status_pub_.getNumSubscribers() > 0) {
-				//status_msg->header.stamp = ros::Time(ros::Time::now());
-				//status_msg->header.seq = seq;
 
-				//status_msg->battery_voltage = float(RO_ALL_Data_.battery_voltage) * 0.001;
-			}
-			if (motor_pub_.getNumSubscribers() > 0) {
-				motor_msg->header.stamp = ros::Time(ros::Time::now());
-				motor_msg->header.seq = seq;
-				for (int i = 0; i < 6; ++i) {
-					motor_msg->motor_speed[i] = RO_ALL_Data_.motor_rpm[i];
+			if (cond_any_.timed_wait(s_lock, status_timeout) == false) {
+				// only publish if someone has already subscribed to topics
+				if (rcdata_pub_.getNumSubscribers() > 0) {
+					rcdata_msg->header.stamp = ros::Time(ros::Time::now());
+					rcdata_msg->header.seq = seq;
+					for (int i = 0; i < 8; ++i) {
+						rcdata_msg->channel[i] = RO_ALL_Data_.channel[i];
+					}
+					rcdata_pub_.publish(rcdata_msg);
 				}
-				motor_pub_.publish(motor_msg);
+				if (status_pub_.getNumSubscribers() > 0) {
+					//status_msg->header.stamp = ros::Time(ros::Time::now());
+					//status_msg->header.seq = seq;
+
+					//status_msg->battery_voltage = float(RO_ALL_Data_.battery_voltage) * 0.001;
+				}
+				if (motor_pub_.getNumSubscribers() > 0) {
+					motor_msg->header.stamp = ros::Time(ros::Time::now());
+					motor_msg->header.seq = seq;
+					for (int i = 0; i < 6; ++i) {
+						motor_msg->motor_speed[i] = RO_ALL_Data_.motor_rpm[i];
+					}
+					motor_pub_.publish(motor_msg);
+				}
+				++seq;
 			}
-			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
-
+		ROS_INFO("publishStatusMotorsRcData() thread interrupted");
 	}
 }
 

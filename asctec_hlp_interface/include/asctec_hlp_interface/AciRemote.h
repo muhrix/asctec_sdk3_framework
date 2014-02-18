@@ -102,6 +102,7 @@ private:
 	boost::mutex mtx_, buf_mtx_;
 	boost::shared_mutex shared_mtx_;
 	boost::condition_variable cond_;
+	boost::condition_variable_any cond_any_;
 	boost::shared_ptr<boost::thread> aci_throttle_thread_;
 	boost::shared_ptr<boost::thread> imu_mag_thread_;
 	boost::shared_ptr<boost::thread> gps_thread_;
