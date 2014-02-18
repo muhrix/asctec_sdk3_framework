@@ -212,6 +212,72 @@ void AciRemote::setupVarPackets() {
 	// setup variables packets to be received
 	// along with reception rate (not more than ACI Engine rate)
 
+	// packet ID 0 containing: status, motor speed and RC data
+	// status data
+	aciAddContentToVarPacket(0, 0x0001, &RO_ALL_Data.UAV_status);
+	aciAddContentToVarPacket(0, 0x0002, &RO_ALL_Data.flight_time);
+	aciAddContentToVarPacket(0, 0x0003, &RO_ALL_Data.battery_voltage);
+	aciAddContentToVarPacket(0, 0x0004, &RO_ALL_Data.HL_cpu_load);
+	aciAddContentToVarPacket(0, 0x0005, &RO_ALL_Data.HL_up_time);
+	// motor speed data
+	aciAddContentToVarPacket(0, 0x0100, &RO_ALL_Data.motor_rpm[0]);
+	aciAddContentToVarPacket(0, 0x0101, &RO_ALL_Data.motor_rpm[1]);
+	aciAddContentToVarPacket(0, 0x0102, &RO_ALL_Data.motor_rpm[2]);
+	aciAddContentToVarPacket(0, 0x0103, &RO_ALL_Data.motor_rpm[3]);
+	// Rc data
+	aciAddContentToVarPacket(0, 0x0600, &RO_ALL_Data.channel[0]);
+	aciAddContentToVarPacket(0, 0x0601, &RO_ALL_Data.channel[1]);
+	aciAddContentToVarPacket(0, 0x0602, &RO_ALL_Data.channel[2]);
+	aciAddContentToVarPacket(0, 0x0603, &RO_ALL_Data.channel[3]);
+	aciAddContentToVarPacket(0, 0x0604, &RO_ALL_Data.channel[4]);
+	aciAddContentToVarPacket(0, 0x0605, &RO_ALL_Data.channel[5]);
+	aciAddContentToVarPacket(0, 0x0606, &RO_ALL_Data.channel[6]);
+	aciAddContentToVarPacket(0, 0x0607, &RO_ALL_Data.channel[7]);
+
+	// packet ID 1 containing: GPS data
+	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data.GPS_latitude);
+	aciAddContentToVarPacket(1, 0x0107, &RO_ALL_Data.GPS_longitude);
+	aciAddContentToVarPacket(1, 0x0108, &RO_ALL_Data.GPS_height);
+	aciAddContentToVarPacket(1, 0x0109, &RO_ALL_Data.GPS_speed_x);
+	aciAddContentToVarPacket(1, 0x010A, &RO_ALL_Data.GPS_speed_y);
+	aciAddContentToVarPacket(1, 0x010B, &RO_ALL_Data.GPS_heading);
+	aciAddContentToVarPacket(1, 0x010C, &RO_ALL_Data.GPS_position_accuracy);
+	aciAddContentToVarPacket(1, 0x010D, &RO_ALL_Data.GPS_height_accuracy);
+	aciAddContentToVarPacket(1, 0x010E, &RO_ALL_Data.GPS_speed_accuracy);
+	aciAddContentToVarPacket(1, 0x010F, &RO_ALL_Data.GPS_sat_num);
+	aciAddContentToVarPacket(1, 0x0110, &RO_ALL_Data.GPS_status);
+	aciAddContentToVarPacket(1, 0x0111, &RO_ALL_Data.GPS_time_of_week);
+	aciAddContentToVarPacket(1, 0x0112, &RO_ALL_Data.GPS_week);
+	aciAddContentToVarPacket(1, 0x0303, &RO_ALL_Data.fusion_latitude);
+	aciAddContentToVarPacket(1, 0x0304, &RO_ALL_Data.fusion_longitude);
+	aciAddContentToVarPacket(1, 0x0305, &RO_ALL_Data.fusion_height);
+	aciAddContentToVarPacket(1, 0x0306, &RO_ALL_Data.fusion_dheight);
+	aciAddContentToVarPacket(1, 0x0307, &RO_ALL_Data.fusion_speed_x);
+	aciAddContentToVarPacket(1, 0x0308, &RO_ALL_Data.fusion_speed_y);
+
+
+	// packet ID 2 containing: IMU + magnetometer
+	aciAddContentToVarPacket(2, 0x0200, &RO_ALL_Data.angvel_pitch);
+	aciAddContentToVarPacket(2, 0x0201, &RO_ALL_Data.angvel_roll);
+	aciAddContentToVarPacket(2, 0x0202, &RO_ALL_Data.angvel_yaw);
+	aciAddContentToVarPacket(2, 0x0203, &RO_ALL_Data.acc_x);
+	aciAddContentToVarPacket(2, 0x0204, &RO_ALL_Data.acc_y);
+	aciAddContentToVarPacket(2, 0x0205, &RO_ALL_Data.acc_z);
+	aciAddContentToVarPacket(2, 0x0206, &RO_ALL_Data.Hx);
+	aciAddContentToVarPacket(2, 0x0207, &RO_ALL_Data.Hy);
+	aciAddContentToVarPacket(2, 0x0208, &RO_ALL_Data.Hz);
+	aciAddContentToVarPacket(2, 0x0300, &RO_ALL_Data.angle_pitch);
+	aciAddContentToVarPacket(2, 0x0301, &RO_ALL_Data.angle_roll);
+	aciAddContentToVarPacket(2, 0x0302, &RO_ALL_Data.angle_yaw);
+
+	// set transmission rate for packets, update and send configuration
+	aciSetVarPacketTransmissionRate(0, rc_status_rate_);
+	aciSetVarPacketTransmissionRate(1, gps_rate_);
+	aciSetVarPacketTransmissionRate(2, imu_rate_);
+	aciVarPacketUpdateTransmissionRates();
+	aciSendVariablePacketConfiguration(0);
+	aciSendVariablePacketConfiguration(1);
+	aciSendVariablePacketConfiguration(2);
 
 	boost::mutex::scoped_lock lock(mtx_);
 	var_list_recv_ = true;
