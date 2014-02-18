@@ -11,6 +11,7 @@
 #define ACIREMOTE_H_
 
 #include "asctec_hlp_interface/SerialComm.h"
+#include "asctec_hlp_interface/AsctecSDK3.h"
 
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
@@ -105,6 +106,30 @@ private:
 	boost::shared_ptr<boost::thread> imu_mag_thread_;
 	boost::shared_ptr<boost::thread> gps_thread_;
 	boost::shared_ptr<boost::thread> rc_status_thread_;
+
+	// Asctec SDK 3.0 data structures
+	struct WO_SDK_STRUCT WO_SDK;
+	struct RO_ALL_DATA RO_ALL_Data;
+	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_Direct_Individual_Motor_Control;
+	struct WO_DIRECT_MOTOR_CONTROL WO_Direct_Motor_Control;
+	struct WO_CTRL_INPUT WO_CTRL_Input;
+	struct WAYPOINT WO_wpToLL;
+
+	// Asctec SDK 3.0 variables
+	//choose actual waypoint command from WP_CMD_* defines
+	unsigned char wpCtrlWpCmd;
+	//send current waypoint command to LLP
+	unsigned char wpCtrlWpCmdUpdated;
+	//acknowledge from LL processor that waypoint was accepted
+	unsigned char wpCtrlAckTrigger;
+	//check navigation status with WP_NAVSTAT_* defines
+	unsigned short wpCtrlNavStatus;
+	//current distance to the current waypoint in dm (=10 cm)
+	unsigned short wpCtrlDistToWp;
+
+	//emergency mode variables
+	unsigned char emergencyMode;
+	unsigned char emergencyModeUpdate;
 };
 
 } /* namespace AciRemote */
