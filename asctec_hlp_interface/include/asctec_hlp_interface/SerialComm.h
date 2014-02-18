@@ -21,7 +21,7 @@
 
 #include <ros/ros.h>
 
-#define SERIAL_PORT_READ_BUF_SIZE 256
+#define SERIAL_PORT_READ_BUF_SIZE 512
 
 class SerialComm {
 	typedef boost::shared_ptr<boost::asio::serial_port> SerialPortPtr;
