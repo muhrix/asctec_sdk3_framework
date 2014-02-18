@@ -73,6 +73,8 @@ private:
 	int aci_rate_;
 	int aci_heartbeat_;
 	int bytes_recv_;
+	double ang_vel_variance_;
+	double lin_acc_variance_;
 
 	std::string imu_topic_;
 	std::string imu_custom_topic_;
