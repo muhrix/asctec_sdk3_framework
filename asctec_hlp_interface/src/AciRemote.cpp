@@ -321,8 +321,18 @@ void AciRemote::publishImuMagData() {
 		for (;;) {
 			boost::system_time const throttle_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(imu_throttle);
-
+			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+			// only publish if someone has already subscribed to topics
+			if (imu_pub_.getNumSubscribers() > 0) {
+
+			}
+			if (imu_custom_pub_.getNumSubscribers() > 0) {
+
+			}
+			if (mag_pub_.getNumSubscribers() > 0) {
+
+			}
 		}
 	}
 	catch (boost::thread_interrupted const&) {
@@ -339,8 +349,15 @@ void AciRemote::publishGpsData() {
 		for (;;) {
 			boost::system_time const throttle_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(gps_throttle);
-
+			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+			// only publish if someone has already subscribed to topics
+			if (gps_pub_.getNumSubscribers() > 0) {
+
+			}
+			if (gps_custom_pub_.getNumSubscribers() > 0) {
+
+			}
 		}
 	}
 	catch (boost::thread_interrupted const&) {
@@ -358,8 +375,18 @@ void AciRemote::publishStatusMotorsRcData() {
 		for (;;) {
 			boost::system_time const throttle_timeout =
 					boost::get_system_time() + boost::posix_time::milliseconds(status_throttle);
-
+			// acquire multiple reader shared lock
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+			// only publish if someone has already subscribed to topics
+			if (rcdata_pub_.getNumSubscribers() > 0) {
+
+			}
+			if (status_pub_.getNumSubscribers() > 0) {
+
+			}
+			if (motor_pub_.getNumSubscribers() > 0) {
+
+			}
 		}
 	}
 	catch (boost::thread_interrupted const&) {
