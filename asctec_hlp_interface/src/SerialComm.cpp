@@ -14,6 +14,8 @@ SerialComm::SerialComm(): port_name_("/dev/ttyUSB0"), baud_rate_(230400), open_(
 }
 
 SerialComm::~SerialComm() {
+	std::cout << "SerialComm destructor" << std::endl;
+	std::cout.flush();
 	if (isOpen()) {
 		try {
 			closePort();
