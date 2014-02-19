@@ -34,7 +34,7 @@ void* aci_obj_ptr = NULL;
 AciRemote::AciRemote(ros::NodeHandle& nh):
 		SerialComm(), n_(nh), bytes_recv_(0),
 		versions_match_(false), var_list_recv_(false),
-		cmd_list_recv_(false), par_list_recv_(false) {
+		cmd_list_recv_(false), par_list_recv_(false), must_stop_(false) {
 
 	// assign *this pointer of this instanced object to global pointer for use with callbacks
 	aci_obj_ptr = static_cast<void*>(this);
@@ -64,20 +64,28 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("status_topic", status_topic_, std::string("status"));
 	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
 
-	// TODO: Initialise Asctec SDK3 data structures!!!
+	// TODO: Initialise Asctec SDK3 Command data structures before enabling serial switch
 }
 
 AciRemote::~AciRemote() {
-	// interrupt all running threads...
-	aci_throttle_thread_->interrupt();
-	imu_mag_thread_->interrupt();
-	gps_thread_->interrupt();
-	rc_status_thread_->interrupt();
-	// ... and wait for them to return
-	aci_throttle_thread_->join();
+	std::cout << "AciRemote destructor" << std::endl;
+	std::cout.flush();
+	// interrupt all running threads and wait for them to return
+
+	// lock buf_mtx_ FIRST, otherwise throttleEngine() will cause a deadlock!
+	boost::unique_lock<boost::mutex> u_lock(buf_mtx_);
+	boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
+	boost::upgrade_to_unique_lock<boost::shared_mutex> un_lock(up_lock);
+	must_stop_ = true;
+	up_lock.unlock();
+	u_lock.unlock();
+	cond_.notify_one();
+	cond_any_.notify_all();
+
 	imu_mag_thread_->join();
 	gps_thread_->join();
 	rc_status_thread_->join();
+	aci_throttle_thread_->join();
 
 	ROS_INFO("All threads have shutdown");
 
@@ -421,6 +429,10 @@ void AciRemote::throttleEngine() {
 			boost::unique_lock<boost::mutex> u_lock(buf_mtx_);
 
 			if (cond_.timed_wait(u_lock, throttle_timeout) == false) {
+				// check whether thread should terminate (::interrupt() appears to have no effect)
+				if (must_stop_)
+					return;
+
 				// throttle ACI Engine
 				aciEngine();
 
@@ -454,6 +466,11 @@ void AciRemote::publishImuMagData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, imu_timeout) == false) {
+				// check whether thread should terminate (::interrupt() appears to have no effect)
+				if (must_stop_)
+					return;
+				// TODO: implement flag to put thread into idle mode to save computational resources
+
 				ros::Time time_stamp(ros::Time::now());
 				double roll = helper::asctecAttitudeToSI(RO_ALL_Data_.angle_roll);
 				double pitch = helper::asctecAttitudeToSI(RO_ALL_Data_.angle_pitch);
@@ -532,6 +549,11 @@ void AciRemote::publishGpsData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, gps_timeout) == false) {
+				// check whether thread should terminate (::interrupt() appears to have no effect)
+				if (must_stop_)
+					return;
+				// TODO: implement flag to put thread into idle mode to save computational resources
+
 				ros::Time time_stamp(ros::Time::now());
 				// TODO: check covariance
 				double var_h, var_v;
@@ -625,6 +647,11 @@ void AciRemote::publishStatusMotorsRcData() {
 			boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
 			if (cond_any_.timed_wait(s_lock, status_timeout) == false) {
+				// check whether thread should terminate (::interrupt() appears to have no effect)
+				if (must_stop_)
+					return;
+				// TODO: implement flag to put thread into idle mode to save computational resources
+
 				ros::Time time_stamp(ros::Time::now());
 				// only publish if someone has already subscribed to topics
 				if (rcdata_pub_.getNumSubscribers() > 0) {

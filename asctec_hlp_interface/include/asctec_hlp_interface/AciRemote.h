@@ -100,6 +100,7 @@ private:
 	bool var_list_recv_;
 	bool cmd_list_recv_;
 	bool par_list_recv_;
+	volatile bool must_stop_;
 
 	boost::mutex mtx_, buf_mtx_;
 	boost::shared_mutex shared_mtx_;
