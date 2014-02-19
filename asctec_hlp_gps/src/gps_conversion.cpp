@@ -29,9 +29,9 @@
 
  */
 
-#include "gps_conversion.h"
+#include "asctec_hlp_gps/gps_conversion.h"
 
-namespace asctec_hl_gps
+namespace asctec_hlp_gps
 {
 
 GpsConversion::GpsConversion() :
@@ -47,8 +47,8 @@ GpsConversion::GpsConversion() :
   gps_custom_sub_ = nh.subscribe("fcu/gps_custom", 1, &GpsConversion::gpsCustomCallback, this);
 
   gps_pose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped> ("fcu/gps_pose", 1);
-  gps_position_pub_ = nh_.advertise<asctec_hl_comm::PositionWithCovarianceStamped> ("fcu/gps_position", 1);
-  gps_custom_pub_ = nh_.advertise<asctec_hl_comm::GpsCustomCartesian> ("fcu/gps_position_custom", 1);
+  gps_position_pub_ = nh_.advertise<asctec_hlp_comm::PositionWithCovarianceStamped> ("fcu/gps_position", 1);
+  gps_custom_pub_ = nh_.advertise<asctec_hlp_comm::GpsCustomCartesian> ("fcu/gps_position_custom", 1);
   zero_height_srv_ = nh.advertiseService("set_height_zero", &GpsConversion::zeroHeightCb, this);
 
   pnh.param("use_pressure_height", use_pressure_height_, false);
@@ -80,7 +80,7 @@ bool GpsConversion::zeroHeightCb(std_srvs::EmptyRequest & req, std_srvs::EmptyRe
 }
 
 void GpsConversion::syncCallback(const sensor_msgs::NavSatFixConstPtr & gps,
-                                 const asctec_hl_comm::mav_imuConstPtr & imu)
+                                 const asctec_hlp_comm::mav_imuConstPtr & imu)
 {
   if (gps->status.status != sensor_msgs::NavSatStatus::STATUS_FIX)
   {
@@ -102,7 +102,7 @@ void GpsConversion::syncCallback(const sensor_msgs::NavSatFixConstPtr & gps,
 
   if (use_pressure_height_)
   {
-    asctec_hl_comm::PositionWithCovarianceStampedPtr msg(new asctec_hl_comm::PositionWithCovarianceStamped);
+    asctec_hlp_comm::PositionWithCovarianceStampedPtr msg(new asctec_hlp_comm::PositionWithCovarianceStamped);
     msg->header = gps->header;
     msg->position = wgs84ToEnu(gps->latitude, gps->longitude, gps->altitude);
     msg->position.z = imu->height - height_offset_;
@@ -124,7 +124,7 @@ void GpsConversion::gpsCallback(const sensor_msgs::NavSatFixConstPtr & gps)
     gps_position_ = wgs84ToEnu(gps->latitude, gps->longitude, gps->altitude);
     if (!use_pressure_height_)
     {
-      asctec_hl_comm::PositionWithCovarianceStampedPtr msg(new asctec_hl_comm::PositionWithCovarianceStamped);
+      asctec_hlp_comm::PositionWithCovarianceStampedPtr msg(new asctec_hlp_comm::PositionWithCovarianceStamped);
       msg->header = gps->header;
       msg->position = gps_position_;
       msg->covariance = gps->position_covariance;
@@ -137,7 +137,7 @@ void GpsConversion::gpsCallback(const sensor_msgs::NavSatFixConstPtr & gps)
   }
 }
 
-void GpsConversion::gpsCustomCallback(const asctec_hl_comm::GpsCustomConstPtr & gps)
+void GpsConversion::gpsCustomCallback(const asctec_hlp_comm::GpsCustomConstPtr & gps)
 {
   if (!have_reference_)
   {
@@ -149,7 +149,7 @@ void GpsConversion::gpsCustomCallback(const asctec_hl_comm::GpsCustomConstPtr & 
   {
     geometry_msgs::Point pos = wgs84ToEnu(gps->latitude, gps->longitude, gps->altitude);
 
-    asctec_hl_comm::GpsCustomCartesianPtr msg(new asctec_hl_comm::GpsCustomCartesian);
+    asctec_hlp_comm::GpsCustomCartesianPtr msg(new asctec_hlp_comm::GpsCustomCartesian);
     msg->header = gps->header;
     msg->position = pos;
     msg->position_covariance = gps->position_covariance;
@@ -169,7 +169,7 @@ void GpsConversion::gpsCustomCallback(const asctec_hl_comm::GpsCustomConstPtr & 
 
 }
 
-void GpsConversion::imuCallback(const asctec_hl_comm::mav_imuConstPtr & imu)
+void GpsConversion::imuCallback(const asctec_hlp_comm::mav_imuConstPtr & imu)
 {
   if (gps_position_.x == 0 && gps_position_.y == 0 && gps_position_.z == 0)
   {

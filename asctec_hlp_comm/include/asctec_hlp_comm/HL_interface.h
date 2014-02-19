@@ -33,8 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __HL_INTERFACE__
 #define __HL_INTERFACE__
 
-#include "extPositionCtrl.h"
-#include "HL_SSDK.h"
+#include "asctec_hlp_comm/extPositionCtrl.h"
+#include "asctec_hlp_comm/HL_SSDK.h"
 #include <inttypes.h>
 
 // Packet descriptors -----------------------------------------------

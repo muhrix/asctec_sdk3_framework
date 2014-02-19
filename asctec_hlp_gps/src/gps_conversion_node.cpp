@@ -30,13 +30,13 @@
  */
 
 
-#include "gps_conversion.h"
+#include "asctec_hlp_gps/gps_conversion.h"
 
 int main(int argc, char** argv){
 
-  ros::init(argc, argv, "gps_conversion");
+  ros::init(argc, argv, "hlp_gps_conversion");
 
-  asctec_hl_gps::GpsConversion gf;
+  asctec_hlp_gps::GpsConversion gf;
 
   ros::spin();
 
