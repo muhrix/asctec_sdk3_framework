@@ -34,7 +34,8 @@ void* aci_obj_ptr = NULL;
 AciRemote::AciRemote(ros::NodeHandle& nh):
 		SerialComm(), n_(nh), bytes_recv_(0),
 		versions_match_(false), var_list_recv_(false),
-		cmd_list_recv_(false), par_list_recv_(false), must_stop_(false) {
+		cmd_list_recv_(false), par_list_recv_(false),
+		must_stop_engine_(false), must_stop_pub_(false) {
 
 	// assign *this pointer of this instanced object to global pointer for use with callbacks
 	aci_obj_ptr = static_cast<void*>(this);
@@ -68,26 +69,29 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 }
 
 AciRemote::~AciRemote() {
-	std::cout << "AciRemote destructor" << std::endl;
-	std::cout.flush();
+	// first of all, close serial port, otherwise pure virtual method would be called
+	closePort();
 	// interrupt all running threads and wait for them to return
+	{
+		boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
+		boost::upgrade_to_unique_lock<boost::shared_mutex> un_lock(up_lock);
+		must_stop_pub_ = true;
+	}
+	if (imu_mag_thread_.get() != NULL)
+		imu_mag_thread_->join();
+	if (gps_thread_.get() != NULL)
+		gps_thread_->join();
+	if (rc_status_thread_.get() != NULL)
+		rc_status_thread_->join();
 
-	// lock buf_mtx_ FIRST, otherwise throttleEngine() will cause a deadlock!
 	boost::unique_lock<boost::mutex> u_lock(buf_mtx_);
-	boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
-	boost::upgrade_to_unique_lock<boost::shared_mutex> un_lock(up_lock);
-	must_stop_ = true;
-	up_lock.unlock();
+	must_stop_engine_ = true;
 	u_lock.unlock();
-	cond_.notify_one();
-	cond_any_.notify_all();
+	if (aci_throttle_thread_.get() != NULL)
+		aci_throttle_thread_->join();
 
-	imu_mag_thread_->join();
-	gps_thread_->join();
-	rc_status_thread_->join();
-	aci_throttle_thread_->join();
-
-	ROS_INFO("All threads have shutdown");
+	// at this point, ros::spin() will not be called anymore and thus ROS_INFO will not work
+	//ROS_INFO("All threads have shutdown");
 
 	// assign NULL to global object pointer
 	aci_obj_ptr = static_cast<void*>(NULL);
@@ -430,7 +434,7 @@ void AciRemote::throttleEngine() {
 
 			if (cond_.timed_wait(u_lock, throttle_timeout) == false) {
 				// check whether thread should terminate (::interrupt() appears to have no effect)
-				if (must_stop_)
+				if (must_stop_engine_)
 					return;
 
 				// throttle ACI Engine
@@ -467,7 +471,7 @@ void AciRemote::publishImuMagData() {
 
 			if (cond_any_.timed_wait(s_lock, imu_timeout) == false) {
 				// check whether thread should terminate (::interrupt() appears to have no effect)
-				if (must_stop_)
+				if (must_stop_pub_)
 					return;
 				// TODO: implement flag to put thread into idle mode to save computational resources
 
@@ -550,7 +554,7 @@ void AciRemote::publishGpsData() {
 
 			if (cond_any_.timed_wait(s_lock, gps_timeout) == false) {
 				// check whether thread should terminate (::interrupt() appears to have no effect)
-				if (must_stop_)
+				if (must_stop_pub_)
 					return;
 				// TODO: implement flag to put thread into idle mode to save computational resources
 
@@ -648,7 +652,7 @@ void AciRemote::publishStatusMotorsRcData() {
 
 			if (cond_any_.timed_wait(s_lock, status_timeout) == false) {
 				// check whether thread should terminate (::interrupt() appears to have no effect)
-				if (must_stop_)
+				if (must_stop_pub_)
 					return;
 				// TODO: implement flag to put thread into idle mode to save computational resources
 
