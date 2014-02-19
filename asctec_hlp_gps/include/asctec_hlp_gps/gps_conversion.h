@@ -16,18 +16,18 @@
 
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <asctec_hl_comm/PositionWithCovarianceStamped.h>
-#include <asctec_hl_comm/mav_imu.h>
-#include <asctec_hl_comm/GpsCustom.h>
-#include <asctec_hl_comm/GpsCustomCartesian.h>
+#include <asctec_hlp_comm/PositionWithCovarianceStamped.h>
+#include <asctec_hlp_comm/mav_imu.h>
+#include <asctec_hlp_comm/GpsCustom.h>
+#include <asctec_hlp_comm/GpsCustomCartesian.h>
 #include <std_srvs/Empty.h>
 #include <Eigen/Eigen>
 
-namespace asctec_hl_gps{
+namespace asctec_hlp_gps{
 
 class GpsConversion
 {
-  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::NavSatFix, asctec_hl_comm::mav_imu> GpsImuSyncPolicy;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::NavSatFix, asctec_hlp_comm::mav_imu> GpsImuSyncPolicy;
 private:
   ros::NodeHandle nh_;
   ros::Publisher gps_pose_pub_;
@@ -36,7 +36,7 @@ private:
   ros::ServiceServer zero_height_srv_;
 
   message_filters::Subscriber<sensor_msgs::NavSatFix> gps_sub_sync_;
-  message_filters::Subscriber<asctec_hl_comm::mav_imu> imu_sub_sync_;
+  message_filters::Subscriber<asctec_hlp_comm::mav_imu> imu_sub_sync_;
   message_filters::Synchronizer<GpsImuSyncPolicy> gps_imu_sync_;
 
   ros::Subscriber gps_sub_;
@@ -59,10 +59,10 @@ private:
   static const double DEG2RAD = M_PI/180.0;
   const Eigen::Quaterniond Q_90_DEG;
 
-  void syncCallback(const sensor_msgs::NavSatFixConstPtr & gps, const asctec_hl_comm::mav_imuConstPtr & imu);
+  void syncCallback(const sensor_msgs::NavSatFixConstPtr & gps, const asctec_hlp_comm::mav_imuConstPtr & imu);
   void gpsCallback(const sensor_msgs::NavSatFixConstPtr & gps);
-  void gpsCustomCallback(const asctec_hl_comm::GpsCustomConstPtr & gps);
-  void imuCallback(const asctec_hl_comm::mav_imuConstPtr & imu);
+  void gpsCustomCallback(const asctec_hlp_comm::GpsCustomConstPtr & gps);
+  void imuCallback(const asctec_hlp_comm::mav_imuConstPtr & imu);
   void initReference(const double & latitude, const double & longitude, const double & altitude);
   Eigen::Vector3d wgs84ToEcef(const double & latitude, const double & longitude, const double & altitude);
   Eigen::Vector3d ecefToEnu(const Eigen::Vector3d & ecef);

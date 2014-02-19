@@ -5,7 +5,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp sensor_msgs asctec_hlp_comm messa
 find_package(Eigen REQUIRED)
 find_package(Boost REQUIRED COMPONENTS signals system thread)
 
-include_directories(${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+include_directories(include ${Boost_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
 
 # Set the build type.  Options are:
 #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
