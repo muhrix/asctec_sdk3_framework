@@ -14,8 +14,6 @@ SerialComm::SerialComm(): port_name_("/dev/ttyUSB0"), baud_rate_(230400), open_(
 }
 
 SerialComm::~SerialComm() {
-	std::cout << "SerialComm destructor" << std::endl;
-	std::cout.flush();
 	if (isOpen()) {
 		try {
 			closePort();
@@ -91,6 +89,8 @@ void SerialComm::doClose() {
 		port_->close();
 	}
 	catch (boost::system::system_error& e) {
+		// at this point ros::spin() is likely to not be called anymore,
+		// but I will leave the call to ROS_ERROR below anyway
 		ROS_ERROR_STREAM("Could not close serial port " << port_name_ << ". " << e.what());
 	}
 }
