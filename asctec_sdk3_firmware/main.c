@@ -439,12 +439,12 @@ void ACISDK(void)
 	aciPublishCommand(&WO_wpToLL.X, VARTYPE_INT32, 0x1007, "X", "waypoint longitude", "see sdk.h");
 	aciPublishCommand(&WO_wpToLL.Y, VARTYPE_INT32, 0x1008, "Y", "waypoint latitude", "see sdk.h");
 	aciPublishCommand(&WO_wpToLL.yaw, VARTYPE_INT32, 0x1009, "yaw", "waypoint desired yaw angle (1/1000?)", "see sdk.h");
-	aciPublishCommand(&WO_wpToLL.height, VARTYPE_INT32, 0x1010, "height", "waypoint desired height over 0 reference in mm", "see sdk.h");
+	aciPublishCommand(&WO_wpToLL.height, VARTYPE_INT32, 0x100A, "height", "waypoint desired height over 0 reference in mm", "see sdk.h");
 
-	aciPublishCommand(&wpCtrlWpCmd, VARTYPE_UINT8, 0x1011, "Wp command", "waypoint command", "see sdk.h");
+	aciPublishCommand(&wpCtrlWpCmd, VARTYPE_UINT8, 0x100B, "Wp command", "waypoint command", "see sdk.h");
 
-	aciPublishVariable(&wpCtrlNavStatus, VARTYPE_UINT16, 0x1012, "Wp Nav Status", "waypoint navigation status flag", "see sdk.h");
-	aciPublishVariable(&wpCtrlDistToWp, VARTYPE_UINT16, 0x1013, "dist do wp", "current distance to current waypoint", "dm (=10 cm)");
+	aciPublishVariable(&wpCtrlNavStatus, VARTYPE_UINT16, 0x100C, "Wp Nav Status", "waypoint navigation status flag", "see sdk.h");
+	aciPublishVariable(&wpCtrlDistToWp, VARTYPE_UINT16, 0x100D, "dist do wp", "current distance to current waypoint", "dm (=10 cm)");
 
 	// Testing/development variables
 	aciPublishCommand(&doBeep, VARTYPE_UINT16, 0x1014, "beep", "pelican should beep when receiving this command", "1 = must beep");

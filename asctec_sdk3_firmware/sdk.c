@@ -189,6 +189,7 @@ void SDK_mainloop(void)
 	*/
 
 
+	/*
 	static int init_timer = 0;
 	static int timer = 0;
 	if (init_timer == 15000) {
@@ -216,6 +217,7 @@ void SDK_mainloop(void)
 		}
 	}
 	else ++init_timer;
+	*/
 
 
 	/*
