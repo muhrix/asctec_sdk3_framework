@@ -64,8 +64,14 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("rcdata_topic", rcdata_topic_, std::string("rcdata"));
 	n_.param("status_topic", status_topic_, std::string("status"));
 	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
+	n_.param("ctrl_topic", ctrl_topic_, std::string("uav_control"));
+	n_.param("ctrl_service", ctrl_srv_name_, std::string("uav_control"));
+
 
 	// TODO: Initialise Asctec SDK3 Command data structures before enabling serial switch
+	WO_SDK_.ctrl_mode = 0x02;
+	WO_SDK_.ctrl_enabled = 0x00;
+	WO_SDK_.disable_motor_onoff_by_stick = 0x00;
 }
 
 AciRemote::~AciRemote() {
@@ -103,7 +109,7 @@ AciRemote::~AciRemote() {
 //	Public member functions
 //-------------------------------------------------------
 
-int AciRemote::Init() {
+int AciRemote::init() {
 	// open and configure serial port
 	if (openPort() < 0) {
 		return -1;
@@ -139,7 +145,7 @@ int AciRemote::Init() {
 	return 0;
 }
 
-int AciRemote::advertiseRosTopics() {
+int AciRemote::initRosLayer() {
 	int c = 0;
 	boost::asio::io_service io;
 	while (++c < 4) {
@@ -154,6 +160,12 @@ int AciRemote::advertiseRosTopics() {
 			rcdata_pub_ = n_.advertise<asctec_hlp_comm::mav_rcdata>(rcdata_topic_, 1);
 			status_pub_ = n_.advertise<asctec_hlp_comm::mav_hlp_status>(status_topic_, 1);
 			motor_pub_ = n_.advertise<asctec_hlp_comm::MotorSpeed>(motor_topic_, 1);
+
+			ctrl_sub_ = n_.subscribe(ctrl_topic_, 1, &AciRemote::ctrlTopicCallback, this);
+
+			ctrl_srv_ = n_.advertiseService(ctrl_srv_name_, &AciRemote::ctrlServiceCallback, this);
+			//motor_srv_ = n_.advertiseService(motors_srv_name_,
+			// &AciRemote::ctrlMotorsCallback, this);
 
 			// spawn publisher threads
 			try {
@@ -254,6 +266,16 @@ void AciRemote::setupVarPackets() {
 	aciAddContentToVarPacket(0, 0x0605, &RO_ALL_Data_.channel[5]);
 	aciAddContentToVarPacket(0, 0x0606, &RO_ALL_Data_.channel[6]);
 	aciAddContentToVarPacket(0, 0x0607, &RO_ALL_Data_.channel[7]);
+	// data after sensor fusion
+	aciAddContentToVarPacket(0, 0x0303, &RO_ALL_Data_.fusion_latitude);
+	aciAddContentToVarPacket(0, 0x0304, &RO_ALL_Data_.fusion_longitude);
+	aciAddContentToVarPacket(0, 0x0305, &RO_ALL_Data_.fusion_height);
+	aciAddContentToVarPacket(0, 0x0306, &RO_ALL_Data_.fusion_dheight);
+	aciAddContentToVarPacket(0, 0x0307, &RO_ALL_Data_.fusion_speed_x);
+	aciAddContentToVarPacket(0, 0x0308, &RO_ALL_Data_.fusion_speed_y);
+	// TODO: double check whether the variables below are really necessary
+	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
+	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
 
 	// packet ID 1 containing: GPS data
 	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data_.GPS_latitude);
@@ -267,19 +289,8 @@ void AciRemote::setupVarPackets() {
 	aciAddContentToVarPacket(1, 0x010E, &RO_ALL_Data_.GPS_speed_accuracy);
 	aciAddContentToVarPacket(1, 0x010F, &RO_ALL_Data_.GPS_sat_num);
 	aciAddContentToVarPacket(1, 0x0110, &RO_ALL_Data_.GPS_status);
-	aciAddContentToVarPacket(1, 0x0111, &RO_ALL_Data_.GPS_time_of_week);
-	aciAddContentToVarPacket(1, 0x0112, &RO_ALL_Data_.GPS_week);
-	aciAddContentToVarPacket(1, 0x0303, &RO_ALL_Data_.fusion_latitude);
-	aciAddContentToVarPacket(1, 0x0304, &RO_ALL_Data_.fusion_longitude);
-	aciAddContentToVarPacket(1, 0x0305, &RO_ALL_Data_.fusion_height);
-	aciAddContentToVarPacket(1, 0x0306, &RO_ALL_Data_.fusion_dheight);
-	aciAddContentToVarPacket(1, 0x0307, &RO_ALL_Data_.fusion_speed_x);
-	aciAddContentToVarPacket(1, 0x0308, &RO_ALL_Data_.fusion_speed_y);
-	// TODO: double check whether the variables below are really necessary
-	// TODO: use 0x100C and 0x100D below (should change HLP firmware as well)
-	aciAddContentToVarPacket(1, 0x1012, &wpCtrlNavStatus_);
-	aciAddContentToVarPacket(1, 0x1013, &wpCtrlDistToWp_);
-
+	//aciAddContentToVarPacket(1, 0x0111, &RO_ALL_Data_.GPS_time_of_week);
+	//aciAddContentToVarPacket(1, 0x0112, &RO_ALL_Data_.GPS_week);
 
 	// packet ID 2 containing: IMU + magnetometer
 	aciAddContentToVarPacket(2, 0x0200, &RO_ALL_Data_.angvel_pitch);
@@ -320,11 +331,7 @@ void AciRemote::setupCmdPackets() {
 	aciAddContentToCmdPacket(0, 0x0601, &WO_SDK_.ctrl_enabled);
 	aciAddContentToCmdPacket(0, 0x0602, &WO_SDK_.disable_motor_onoff_by_stick);
 
-	// packet ID 1 containing: DMC + CTRL -- direct individual motor control not used here
-	aciAddContentToCmdPacket(1, 0x0506, &WO_DMC_.pitch);
-	aciAddContentToCmdPacket(1, 0x0507, &WO_DMC_.roll);
-	aciAddContentToCmdPacket(1, 0x0508, &WO_DMC_.yaw);
-	aciAddContentToCmdPacket(1, 0x0509, &WO_DMC_.thrust);
+	// packet ID 1 containing: CTRL -- DIMC and DMC not used here
 	aciAddContentToCmdPacket(1, 0x050A, &WO_CTRL_.pitch);
 	aciAddContentToCmdPacket(1, 0x050B, &WO_CTRL_.roll);
 	aciAddContentToCmdPacket(1, 0x050C, &WO_CTRL_.yaw);
@@ -341,14 +348,13 @@ void AciRemote::setupCmdPackets() {
 	aciAddContentToCmdPacket(2, 0x1007, &WO_wpToLL_.X);
 	aciAddContentToCmdPacket(2, 0x1008, &WO_wpToLL_.Y);
 	aciAddContentToCmdPacket(2, 0x1009, &WO_wpToLL_.yaw);
-	// TODO: use 0x100A and 0x100B below (should change HLP firmware as well)
-	aciAddContentToCmdPacket(2, 0x1010, &WO_wpToLL_.height);
-	aciAddContentToCmdPacket(2, 0x1011, &wpCtrlWpCmd_);
+	aciAddContentToCmdPacket(2, 0x100A, &WO_wpToLL_.height);
+	aciAddContentToCmdPacket(2, 0x100B, &wpCtrlWpCmd_);
 
 	// set whether or not should receive ACK, and send configuration
 	aciSendCommandPacketConfiguration(0, 1); // control mode must be set with ACK
 	aciSendCommandPacketConfiguration(1, 0);
-	aciSendCommandPacketConfiguration(2, 0);
+	aciSendCommandPacketConfiguration(2, 1); // waypoint should be set with ACK as well
 
 	// send commands to HLP (DANGER: make sure data structures were properly initialised)
 	aciUpdateCmdPacket(0);
@@ -673,7 +679,7 @@ void AciRemote::publishStatusMotorsRcData() {
 					status_msg->UAV_status = RO_ALL_Data_.UAV_status;
 
 					if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_ATTITUDE)
-						status_msg->flight_mode = "Manual";
+						status_msg->flight_mode = "Attitude";
 					else if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_HEIGHT)
 						status_msg->flight_mode = "Height";
 					else if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_GPS)
@@ -689,14 +695,13 @@ void AciRemote::publishStatusMotorsRcData() {
 					status_msg->serial_interface_active =
 							RO_ALL_Data_.UAV_status & SERIAL_INTERFACE_ACTIVE;
 
-					bool motor_status = false;
+					status_msg->motor_status = "off";
 					for (int i = 0; i < NUM_MOTORS; ++i) {
 						if (RO_ALL_Data_.motor_rpm[i] > 0) {
-							motor_status = true;
+							status_msg->motor_status = "running";
 							break;
 						}
 					}
-					status_msg->motor_status = motor_status;
 
 					// bit 0: GPS lock
 					if (RO_ALL_Data_.GPS_status & 0x01)
@@ -724,6 +729,37 @@ void AciRemote::publishStatusMotorsRcData() {
 		ROS_INFO("publishStatusMotorsRcData() thread interrupted");
 	}
 }
+
+void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
+	// acquire shared lock in order to read from RO_ALL_Data_
+	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+
+//	if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
+//		ROS_WARN_STREAM("UAV in GPS mode; ignoring velocity commands");
+//		return;
+//	}
+//	else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
+//		ROS_WARN_STREAM("Controlling velocity in Z-axis in manual mode is hard; ignoring");
+//	}
+//	else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
+//
+//	}
+}
+
+bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
+		asctec_hlp_comm::HlpCtrlSrv::Response& res) {
+	boost::mutex::scoped_lock lock(ctrl_mtx_);
+
+	WO_SDK_.ctrl_mode = req.ctrl_mode;
+	WO_SDK_.ctrl_enabled = req.ctrl_enabled;
+	WO_SDK_.disable_motor_onoff_by_stick = req.disable_onoff_stick;
+
+	aciUpdateCmdPacket(0);
+
+	res.result = true;
+	return true;
+}
+
 
 
 } /* namespace AciRemote */

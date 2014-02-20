@@ -20,6 +20,8 @@
 #include <boost/bind.hpp>
 
 #include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include "asctec_hlp_comm/HlpCtrlSrv.h"
 #include "aci_remote_v100/asctecDefines.h"
 #include "aci_remote_v100/asctecCommIntf.h"
 
@@ -40,8 +42,8 @@ public:
 	//const AciRemote& operator=(const AciRemote&) = delete;
 	~AciRemote();
 
-	int Init();
-	int advertiseRosTopics();
+	int init();
+	int initRosLayer();
 
 protected:
 	void checkVersions(struct ACI_INFO);
@@ -65,6 +67,10 @@ private:
 	void publishGpsData();
 	void publishStatusMotorsRcData();
 
+	void ctrlTopicCallback(const geometry_msgs::TwistConstPtr&);
+	bool ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request&,
+			asctec_hlp_comm::HlpCtrlSrv::Response&);
+
 	// variables to store ROS parameters
 	std::string frame_id_;
 	int imu_rate_;
@@ -84,6 +90,8 @@ private:
 	std::string rcdata_topic_;
 	std::string status_topic_;
 	std::string motor_topic_;
+	std::string ctrl_topic_;
+	std::string ctrl_srv_name_;
 
 	ros::NodeHandle n_;
 
@@ -95,6 +103,8 @@ private:
 	ros::Publisher rcdata_pub_;
 	ros::Publisher status_pub_;
 	ros::Publisher motor_pub_;
+	ros::Subscriber ctrl_sub_;
+	ros::ServiceServer ctrl_srv_;
 
 	bool versions_match_;
 	bool var_list_recv_;
@@ -103,7 +113,7 @@ private:
 	volatile bool must_stop_engine_;
 	volatile bool must_stop_pub_;
 
-	boost::mutex mtx_, buf_mtx_;
+	boost::mutex mtx_, buf_mtx_, ctrl_mtx_;
 	boost::shared_mutex shared_mtx_;
 	boost::condition_variable cond_;
 	boost::condition_variable_any cond_any_;
@@ -115,9 +125,9 @@ private:
 	// Asctec SDK 3.0 data structures
 	struct WO_SDK_STRUCT WO_SDK_;
 	struct RO_ALL_DATA RO_ALL_Data_;
-	struct RO_RC_DATA RO_RC_Data_;
-	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;
-	struct WO_DIRECT_MOTOR_CONTROL WO_DMC_;
+	//struct RO_RC_DATA RO_RC_Data_;
+	//struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;
+	//struct WO_DIRECT_MOTOR_CONTROL WO_DMC_;
 	struct WO_CTRL_INPUT WO_CTRL_;
 	struct WAYPOINT WO_wpToLL_;
 
