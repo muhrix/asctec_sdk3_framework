@@ -21,7 +21,8 @@ add_message_files(
   mav_imu.msg  
   mav_rcdata.msg  
   mav_state.msg  
-  mav_status.msg  
+  mav_status.msg
+  mav_hlp_status.msg  
   PositionWithCovarianceStamped.msg
   MotorSpeed.msg
 )
@@ -35,6 +36,7 @@ add_service_files(
 add_action_files(
   FILES
   Waypoint.action
+  WaypointGPS.action
 )
 
 ## Generate added messages and services with any dependencies listed here
