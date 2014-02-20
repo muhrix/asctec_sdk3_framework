@@ -31,6 +31,7 @@ add_service_files(
   FILES
   mav_ctrl_motors.srv
   MavCtrlSrv.srv
+  HlpCtrlSrv.srv
 )
 
 add_action_files(

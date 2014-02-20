@@ -1,0 +1,5 @@
+uint8 ctrl_mode
+uint8 ctrl_enabled
+uint8 disable_onoff_stick
+---
+bool  result
