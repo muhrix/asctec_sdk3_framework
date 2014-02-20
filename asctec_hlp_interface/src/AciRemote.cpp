@@ -17,7 +17,7 @@
 
 #include "asctec_hlp_comm/mav_imu.h"
 #include "asctec_hlp_comm/mav_rcdata.h"
-#include "asctec_hlp_comm/mav_status.h"
+#include "asctec_hlp_comm/mav_hlp_status.h"
 #include "asctec_hlp_comm/MotorSpeed.h"
 #include "asctec_hlp_comm/GpsCustom.h"
 
@@ -152,7 +152,7 @@ int AciRemote::advertiseRosTopics() {
 			gps_pub_ = n_.advertise<sensor_msgs::NavSatFix>(gps_topic_, 1);
 			gps_custom_pub_ = n_.advertise<asctec_hlp_comm::GpsCustom>(gps_custom_topic_, 1);
 			rcdata_pub_ = n_.advertise<asctec_hlp_comm::mav_rcdata>(rcdata_topic_, 1);
-			status_pub_ = n_.advertise<asctec_hlp_comm::mav_status>(status_topic_, 1);
+			status_pub_ = n_.advertise<asctec_hlp_comm::mav_hlp_status>(status_topic_, 1);
 			motor_pub_ = n_.advertise<asctec_hlp_comm::MotorSpeed>(motor_topic_, 1);
 
 			// spawn publisher threads
@@ -636,7 +636,7 @@ void AciRemote::publishGpsData() {
 
 void AciRemote::publishStatusMotorsRcData() {
 	asctec_hlp_comm::mav_rcdataPtr rcdata_msg(new asctec_hlp_comm::mav_rcdata);
-	asctec_hlp_comm::mav_statusPtr status_msg(new asctec_hlp_comm::mav_status);
+	asctec_hlp_comm::mav_hlp_statusPtr status_msg(new asctec_hlp_comm::mav_hlp_status);
 	asctec_hlp_comm::MotorSpeedPtr motor_msg(new asctec_hlp_comm::MotorSpeed);
 	rcdata_msg->header.frame_id = frame_id_;
 	status_msg->header.frame_id = frame_id_;
@@ -667,14 +667,46 @@ void AciRemote::publishStatusMotorsRcData() {
 					rcdata_pub_.publish(rcdata_msg);
 				}
 				if (status_pub_.getNumSubscribers() > 0) {
-					// TODO: I am not happy about this status message; review and change it
-//					status_msg->header.stamp = time_stamp;
-//					status_msg->header.seq = seq;
-//					status_msg->flight_time = static_cast<float>(RO_ALL_Data_.flight_time);
-//					status_msg->cpu_load = static_cast<float>(RO_ALL_Data_.HL_cpu_load);
-//					status_msg->
-//					status_msg->battery_voltage =
-//							static_cast<float>(RO_ALL_Data_.battery_voltage) * 0.001;
+					status_msg->header.stamp = time_stamp;
+					status_msg->header.seq = seq;
+
+					status_msg->UAV_status = RO_ALL_Data_.UAV_status;
+
+					if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_ATTITUDE)
+						status_msg->flight_mode = "Manual";
+					else if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_HEIGHT)
+						status_msg->flight_mode = "Height";
+					else if ((RO_ALL_Data_.UAV_status & 0x0F) == HLP_FLIGHTMODE_GPS)
+						status_msg->flight_mode = "GPS";
+
+					status_msg->flight_time = static_cast<float>(RO_ALL_Data_.flight_time);
+					status_msg->battery_voltage =
+							static_cast<float>(RO_ALL_Data_.battery_voltage) * 0.001;
+					status_msg->cpu_load = static_cast<float>(RO_ALL_Data_.HL_cpu_load) * 0.001;
+					status_msg->up_time = static_cast<float>(RO_ALL_Data_.HL_up_time) * 0.001;
+					status_msg->serial_interface_enabled =
+							RO_ALL_Data_.UAV_status & SERIAL_INTERFACE_ENABLED;
+					status_msg->serial_interface_active =
+							RO_ALL_Data_.UAV_status & SERIAL_INTERFACE_ACTIVE;
+
+					bool motor_status = false;
+					for (int i = 0; i < NUM_MOTORS; ++i) {
+						if (RO_ALL_Data_.motor_rpm[i] > 0) {
+							motor_status = true;
+							break;
+						}
+					}
+					status_msg->motor_status = motor_status;
+
+					// bit 0: GPS lock
+					if (RO_ALL_Data_.GPS_status & 0x01)
+						status_msg->gps_status = "GPS fix";
+					else
+						status_msg->gps_status = "GPS no fix";
+
+					status_msg->gps_num_satellites = RO_ALL_Data_.GPS_sat_num;
+
+					status_pub_.publish(status_msg);
 				}
 				if (motor_pub_.getNumSubscribers() > 0) {
 					motor_msg->header.stamp = time_stamp;
