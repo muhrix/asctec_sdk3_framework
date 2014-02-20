@@ -29,11 +29,11 @@ int main(int argc, char* argv[]) {
 	// setup Asctec ACI
 	AciRemote::AciRemote hlp(priv_nh);
 
-	if (hlp.Init() < 0) {
+	if (hlp.init() < 0) {
 		return EXIT_FAILURE;
 	}
 
-	if (hlp.advertiseRosTopics() < 0) {
+	if (hlp.initRosLayer() < 0) {
 		ROS_ERROR("ROS topics not advertised because data has not yet arrived from HLP");
 		return EXIT_FAILURE;
 	}
