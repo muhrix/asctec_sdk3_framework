@@ -51,6 +51,25 @@ struct WO_SDK_STRUCT {
 
 
 
+#define	 ATTITUDE_CONTROL					0x01
+#define	 HEIGHT_CONTROL						0x02
+#define	 POSITION_CONTROL					0x04
+#define	 COMPASS_FAILURE					0x10
+#define	 SERIAL_INTERFACE_ENABLED			0x20
+#define	 SERIAL_INTERFACE_ACTIVE			0x40 //is active when control commands are sent to LLP
+#define	 EMERGENCY_MODE						0x80 //when RC link is lost -> serial interface disabled
+#define	 CALIBRATION_ERROR					0x100
+#define	 GYRO_CALIBRATION_ERROR				0x200
+#define	 ACC_CALIBRATION_ERROR				0x400
+#define	 MAGNETIC_FIELD_STRENGTH_ERROR		0x4000
+#define	 MAGNETIC_INCLINATION_ERROR			0x8000
+
+// flight modes combined with & logic, i.e.:
+// GPS mode is 0x01 & 0x02 & 0x04 = attitude+height+position control modes activated
+#define HLP_FLIGHTMODE_ATTITUDE				0x01
+#define HLP_FLIGHTMODE_HEIGHT				0x03
+#define HLP_FLIGHTMODE_GPS					0x07
+
 //--- read sensor data -----------------------------------------------------------------------------------------------------------------------------------------------
 struct RO_ALL_DATA {
 
