@@ -92,7 +92,7 @@ struct RO_ALL_DATA {
 	    int angle_roll;
 	    int angle_yaw;
 
-	//angular velocities, bias free, in 0.0154 �/s (=> 64.8 = 1 �/s)
+	//angular velocities, bias free, in 0.0154 °/s (=> 64.8 = 1 °/s)
 	    int angvel_pitch;
 	    int angvel_roll;
 	    int angvel_yaw;
@@ -287,7 +287,7 @@ struct WO_CTRL_INPUT {
 							bit 5: GPS position control enabled
 							*/
 
-	//max. pitch/roll (+-2047) equals 51.2� angle if GPS position control is disabled
+	//max. pitch/roll (+-2047) equals 51.2° angle if GPS position control is disabled
 	//max. pitch/roll (+-2047) equals approx. 3 m/s if GPS position control is active (GPS signal needed!)
 
 };
@@ -318,13 +318,13 @@ struct WAYPOINT { //waypoint definition
 //chksum = 0xAAAA + wp.yaw + wp.height + wp.time + wp.X + wp.Y + wp.max_speed + wp.pos_acc + wp.properties + wp.wp_number;
   short chksum;
 
- //relative waypoint coordinates in mm 	// longitude in abs coords e.g. 113647430 (= 11.3647430�; angle in degrees * 10^7)
+ //relative waypoint coordinates in mm 	// longitude in abs coords e.g. 113647430 (= 11.3647430°; angle in degrees * 10^7)
   int X;
- //relative waypoint coordinates in mm  	// latitude in abs coords e.g. 480950480 (= 48.0950480�; angle in degrees * 10^7)
+ //relative waypoint coordinates in mm  	// latitude in abs coords e.g. 480950480 (= 48.0950480°; angle in degrees * 10^7)
   int Y;
 
 //yaw angle
-  int yaw; // 1/1000�
+  int yaw; // 1/1000°
 
 //height over 0 reference in mm
   int height;
