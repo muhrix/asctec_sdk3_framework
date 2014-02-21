@@ -449,6 +449,9 @@ void ACISDK(void)
 	// Testing/development variables
 	aciPublishCommand(&doBeep, VARTYPE_UINT16, 0x1014, "beep", "pelican should beep when receiving this command", "1 = must beep");
 	aciPublishVariable(&myTest, VARTYPE_UINT16, 0x1015, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.ctrl_mode, VARTYPE_UINT8, 0x1016, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.ctrl_enabled, VARTYPE_UINT8, 0x1017, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.disable_motor_onoff_by_stick, VARTYPE_UINT8, 0x1018, "test", "test", "test");
 
 #else
 	// Matlab parameters

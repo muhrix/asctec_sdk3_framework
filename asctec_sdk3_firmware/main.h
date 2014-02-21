@@ -32,6 +32,7 @@ DAMAGE.
 extern void mainloop(void);
 extern void timer0ISR(void);
 
+
 volatile unsigned int GPS_timeout;
 volatile char SYSTEM_initialized;
 
