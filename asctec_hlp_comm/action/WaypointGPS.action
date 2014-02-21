@@ -1,0 +1,25 @@
+#goal
+Header header
+float64                 goal_latitude
+float64                 goal_longitude
+float32                 goal_altitude
+float32                 goal_yaw
+float32                 max_speed
+float32 				position_accuracy # determines the radius around the goal within the goal is considered as reached
+float32                 timeout # timeout in [s] after which flying to the waypoint stops
+---
+#result
+Header header
+float64                 result_latitude
+float64                 result_longitude
+float32                 result_altitude
+float32                 result_yaw
+string                  status
+---
+#feedback
+Header header
+float64                 current_latitude
+float64                 current_longitude
+float32                 current_altitude
+float32                 current_yaw
+string                  status
