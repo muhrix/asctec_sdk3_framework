@@ -1,5 +1,14 @@
 uint8 ctrl_mode
 uint8 ctrl_enabled
 uint8 disable_onoff_stick
+
+uint8 motor1
+uint8 motor2
+uint8 motor3
+uint8 motor4
+
 ---
-bool  result
+uint8 motor1
+uint8 motor2
+uint8 motor3
+uint8 motor4
