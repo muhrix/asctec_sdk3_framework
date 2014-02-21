@@ -5,5 +5,5 @@
 </listAttribute>
 <stringAttribute key="org.eclipse.ui.externaltools.ATTR_LOCATION" value="/usr/bin/openocd"/>
 <stringAttribute key="org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS" value="-f lpc2xxx_asctecusbjtag05.cfg"/>
-<stringAttribute key="org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY" value="/home/murilo/Development/Asctec/Asctec_SDK_3.0_FEI"/>
+<stringAttribute key="org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY" value="/home/murilo/Development/hydro-devel/catkin_dev_ws/src/asctec_sdk3_framework/asctec_sdk3_firmware"/>
 </launchConfiguration>
