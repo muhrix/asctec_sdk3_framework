@@ -71,6 +71,11 @@ private:
 	bool ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request&,
 			asctec_hlp_comm::HlpCtrlSrv::Response&);
 
+	// debug variables
+	unsigned short debug1_;
+	unsigned short debug2_;
+	unsigned short debug3_;
+
 	// variables to store ROS parameters
 	std::string frame_id_;
 	int imu_rate_;
@@ -126,7 +131,7 @@ private:
 	struct WO_SDK_STRUCT WO_SDK_;
 	struct RO_ALL_DATA RO_ALL_Data_;
 	//struct RO_RC_DATA RO_RC_Data_;
-	//struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;
+	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;
 	//struct WO_DIRECT_MOTOR_CONTROL WO_DMC_;
 	struct WO_CTRL_INPUT WO_CTRL_;
 	struct WAYPOINT WO_wpToLL_;

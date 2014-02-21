@@ -69,9 +69,9 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 
 
 	// TODO: Initialise Asctec SDK3 Command data structures before enabling serial switch
-	WO_SDK_.ctrl_mode = 0x02;
-	WO_SDK_.ctrl_enabled = 0x00;
-	WO_SDK_.disable_motor_onoff_by_stick = 0x00;
+	//WO_SDK_.ctrl_mode = 0x02;
+	//WO_SDK_.ctrl_enabled = 0x00;
+	//WO_SDK_.disable_motor_onoff_by_stick = 0x00;
 }
 
 AciRemote::~AciRemote() {
@@ -276,6 +276,10 @@ void AciRemote::setupVarPackets() {
 	// TODO: double check whether the variables below are really necessary
 	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
 	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
+	// debug variables
+	aciAddContentToVarPacket(0, 0x1016, &debug1_);
+	aciAddContentToVarPacket(0, 0x1017, &debug2_);
+	aciAddContentToVarPacket(0, 0x1015, &debug3_);
 
 	// packet ID 1 containing: GPS data
 	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data_.GPS_latitude);
@@ -331,6 +335,11 @@ void AciRemote::setupCmdPackets() {
 	aciAddContentToCmdPacket(0, 0x0601, &WO_SDK_.ctrl_enabled);
 	aciAddContentToCmdPacket(0, 0x0602, &WO_SDK_.disable_motor_onoff_by_stick);
 
+	aciAddContentToCmdPacket(0, 0x0500, &WO_DIMC_.motor[0]);
+	aciAddContentToCmdPacket(0, 0x0501, &WO_DIMC_.motor[1]);
+	aciAddContentToCmdPacket(0, 0x0502, &WO_DIMC_.motor[2]);
+	aciAddContentToCmdPacket(0, 0x0503, &WO_DIMC_.motor[3]);
+
 	// packet ID 1 containing: CTRL -- DIMC and DMC not used here
 	aciAddContentToCmdPacket(1, 0x050A, &WO_CTRL_.pitch);
 	aciAddContentToCmdPacket(1, 0x050B, &WO_CTRL_.roll);
@@ -357,9 +366,9 @@ void AciRemote::setupCmdPackets() {
 	aciSendCommandPacketConfiguration(2, 1); // waypoint should be set with ACK as well
 
 	// send commands to HLP (DANGER: make sure data structures were properly initialised)
-	aciUpdateCmdPacket(0);
-	aciUpdateCmdPacket(1);
-	aciUpdateCmdPacket(2);
+	//aciUpdateCmdPacket(0);
+	//aciUpdateCmdPacket(1);
+	//aciUpdateCmdPacket(2);
 
 	ROS_INFO_STREAM("Commands packets configured");
 
@@ -443,6 +452,7 @@ void AciRemote::throttleEngine() {
 				if (must_stop_engine_)
 					return;
 
+				boost::mutex::scoped_lock s_lock(ctrl_mtx_);
 				// throttle ACI Engine
 				aciEngine();
 
@@ -711,6 +721,11 @@ void AciRemote::publishStatusMotorsRcData() {
 
 					status_msg->gps_num_satellites = RO_ALL_Data_.GPS_sat_num;
 
+					// debug variables
+					status_msg->debug1 = static_cast<unsigned short>(debug1_);
+					status_msg->debug2 = static_cast<unsigned short>(debug2_);
+					status_msg->debug3 = static_cast<unsigned short>(debug3_);
+
 					status_pub_.publish(status_msg);
 				}
 				if (motor_pub_.getNumSubscribers() > 0) {
@@ -750,13 +765,59 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 		asctec_hlp_comm::HlpCtrlSrv::Response& res) {
 	boost::mutex::scoped_lock lock(ctrl_mtx_);
 
+	/*
+	 *  truth table for flight mode-related variables
+	 *
+	 * 	ctrl_mode   ctrl_enabled    serial_enabled  serial_active
+	 * 	0           0               0               0
+	 * 	0           0               1               0
+	 * 	0           1               0               0
+	 * 	0           1               1               0
+	 * 	1           0               0               0
+	 * 	1           0               1               0
+	 * 	1           1               0               0
+	 * 	1           1               1               0
+	 * 	2           0               0               0
+	 * 	2           0               1               0
+	 * 	2           1               0               0
+	 * 	2           1               1               1
+	 * 	3           0               0               0
+	 * 	3           0               1               0
+	 * 	3           1               0               0
+	 * 	3           1               1               0
+	 *
+	 */
+
 	WO_SDK_.ctrl_mode = req.ctrl_mode;
 	WO_SDK_.ctrl_enabled = req.ctrl_enabled;
 	WO_SDK_.disable_motor_onoff_by_stick = req.disable_onoff_stick;
 
+	if (req.motor1 > 0)
+		WO_DIMC_.motor[0] = 10;
+	else
+		WO_DIMC_.motor[0] = 0;
+
+	if (req.motor2 > 0)
+		WO_DIMC_.motor[1] = 10;
+	else
+		WO_DIMC_.motor[1] = 0;
+
+	if (req.motor3 > 0)
+		WO_DIMC_.motor[2] = 10;
+	else
+		WO_DIMC_.motor[2] = 0;
+
+	if (req.motor4 > 0)
+		WO_DIMC_.motor[3] = 10;
+	else
+		WO_DIMC_.motor[3] = 0;
+
 	aciUpdateCmdPacket(0);
 
-	res.result = true;
+	res.motor1 = WO_DIMC_.motor[0];
+	res.motor2 = WO_DIMC_.motor[1];
+	res.motor3 = WO_DIMC_.motor[2];
+	res.motor4 = WO_DIMC_.motor[3];
 	return true;
 }
 
