@@ -23,12 +23,6 @@
 
 namespace AciRemote {
 
-//extern "C" {
-//	void transmit(void* bytes, unsigned short len) {
-//
-//	}
-//}
-
 void* aci_obj_ptr = NULL;
 
 AciRemote::AciRemote(ros::NodeHandle& nh):
@@ -68,7 +62,7 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("ctrl_service", ctrl_srv_name_, std::string("uav_control"));
 
 
-	// TODO: Initialise Asctec SDK3 Command data structures before enabling serial switch
+	// TODO: Initialise Asctec SDK3 Command data structures before enabling RC serial switch
 	//WO_SDK_.ctrl_mode = 0x02;
 	//WO_SDK_.ctrl_enabled = 0x00;
 	//WO_SDK_.disable_motor_onoff_by_stick = 0x00;
@@ -204,6 +198,22 @@ int AciRemote::initRosLayer() {
 	return -1;
 }
 
+void AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& pose) {
+	// TODO: make necessary unit conversions here
+}
+
+void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
+		double& dist_to_goal) {
+	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+	waypt_nav_status = wpCtrlNavStatus_;
+	// current distance to waypoint is in dm (=10cm)
+	dist_to_goal = (double)wpCtrlDistToWp_ * 0.1;
+}
+
+void AciRemote::getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult&) {
+	// TODO: make necessary unit conversions here
+}
+
 
 
 //-------------------------------------------------------
@@ -273,7 +283,6 @@ void AciRemote::setupVarPackets() {
 	aciAddContentToVarPacket(0, 0x0306, &RO_ALL_Data_.fusion_dheight);
 	aciAddContentToVarPacket(0, 0x0307, &RO_ALL_Data_.fusion_speed_x);
 	aciAddContentToVarPacket(0, 0x0308, &RO_ALL_Data_.fusion_speed_y);
-	// TODO: double check whether the variables below are really necessary
 	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
 	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
 	// debug variables

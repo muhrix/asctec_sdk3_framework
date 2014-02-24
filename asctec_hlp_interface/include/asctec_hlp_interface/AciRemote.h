@@ -21,17 +21,15 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <geographic_msgs/GeoPoint.h>
+#include <geographic_msgs/GeoPose.h>
+#include "asctec_hlp_comm/WaypointGPSGoal.h"
+#include "asctec_hlp_comm/WaypointGPSResult.h"
 #include "asctec_hlp_comm/HlpCtrlSrv.h"
 #include "aci_remote_v100/asctecDefines.h"
 #include "aci_remote_v100/asctecCommIntf.h"
 
 namespace AciRemote {
-
-//extern "C" {
-//	void transmit(void*, unsigned short);
-//}
-
-//void* aci_obj_ptr;
 
 class AciRemote: protected SerialComm {
 public:
@@ -44,6 +42,10 @@ public:
 
 	int init();
 	int initRosLayer();
+
+	void setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
+	void getGpsWayptNavStatus(unsigned short&, double&);
+	void getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult&);
 
 protected:
 	void checkVersions(struct ACI_INFO);
