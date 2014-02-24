@@ -7,6 +7,7 @@ set(CMAKE_BUILD_TYPE Debug)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  geographic_msgs
   geometry_msgs
   nav_msgs
   roscpp
@@ -87,7 +88,7 @@ find_package(Boost REQUIRED COMPONENTS system signals thread)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES asctec_aci_interface
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp sensor_msgs std_msgs aci_remote_v100 asctec_hlp_comm
+  CATKIN_DEPENDS geographic_msgs geometry_msgs nav_msgs roscpp sensor_msgs std_msgs aci_remote_v100 asctec_hlp_comm
 #  DEPENDS system_lib
 )
 
@@ -109,6 +110,9 @@ add_library(asctec_aci_interface
    src/AciRemote.cpp
    src/SerialComm.cpp
 )
+add_library(waypoint_gps_action_server
+   src/WaypointGPSActionServer.cpp
+)
 
 ## Declare a cpp executable
 add_executable(hlp_node src/hlp_node.cpp)
@@ -116,10 +120,16 @@ add_executable(hlp_node src/hlp_node.cpp)
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(asctec_hlp_interface_node asctec_hlp_interface_generate_messages_cpp)
+add_dependencies(asctec_aci_interface ${catkin_EXPORTED_TARGETS})
+add_dependencies(waypoint_gps_action_server ${catkin_EXPORTED_TARGETS})
 add_dependencies(hlp_node ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(asctec_aci_interface
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+)
+target_link_libraries(waypoint_gps_action_server
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
 )
@@ -144,7 +154,7 @@ target_link_libraries(hlp_node
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS asctec_aci_interface hlp_node
+install(TARGETS asctec_aci_interface waypoint_gps_action_server hlp_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
