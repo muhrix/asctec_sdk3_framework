@@ -1,0 +1,3 @@
+geographic_msgs/GeoPoint[]     geofence
+---
+geographic_msgs/GeoPoint[]     curr_geofence
