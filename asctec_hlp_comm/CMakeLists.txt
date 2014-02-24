@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(asctec_hlp_comm)
 
-find_package(catkin REQUIRED COMPONENTS message_generation actionlib_msgs geometry_msgs sensor_msgs)
+find_package(catkin REQUIRED COMPONENTS message_generation actionlib_msgs geographic_msgs geometry_msgs sensor_msgs)
 
 # Set the build type.  Options are:
 #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
@@ -32,6 +32,7 @@ add_service_files(
   mav_ctrl_motors.srv
   MavCtrlSrv.srv
   HlpCtrlSrv.srv
+  GeofenceSrv.srv
 )
 
 add_action_files(
@@ -42,7 +43,7 @@ add_action_files(
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-  DEPENDENCIES geometry_msgs std_msgs sensor_msgs actionlib_msgs
+  DEPENDENCIES geographic_msgs geometry_msgs std_msgs sensor_msgs actionlib_msgs
 )
 
 # TODO: fill in what other packages will need to use this package
@@ -52,7 +53,7 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 catkin_package(
     DEPENDS 
-    CATKIN_DEPENDS message_runtime actionlib_msgs geometry_msgs sensor_msgs
+    CATKIN_DEPENDS message_runtime actionlib_msgs geographic_msgs geometry_msgs sensor_msgs
     INCLUDE_DIRS include
     LIBRARIES 
 )
