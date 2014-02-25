@@ -24,6 +24,7 @@
 #include "asctec_hlp_comm/GeofenceSrv.h"
 
 #include "asctec_hlp_interface/AsctecSDK3.h"
+#include "asctec_hlp_interface/AciRemote.h"
 
 namespace Waypoint {
 	namespace Action {
@@ -36,7 +37,7 @@ namespace Waypoint {
 
 class WaypointGPSActionServer {
 public:
-	WaypointGPSActionServer(const std::string&);
+	WaypointGPSActionServer(const std::string&, boost::shared_ptr<AciRemote::AciRemote>&);
 	~WaypointGPSActionServer();
 
 	// getters

@@ -10,16 +10,27 @@
 #include "asctec_hlp_interface/WaypointGPSActionServer.h"
 #include "asctec_hlp_interface/Helper.h"
 
-WaypointGPSActionServer::WaypointGPSActionServer(const std::string& name):
+WaypointGPSActionServer::WaypointGPSActionServer(const std::string& name,
+		boost::shared_ptr<AciRemote::AciRemote>& aci):
 	n_("~"),
 	as_(n_, name, boost::bind(&WaypointGPSActionServer::GpsWaypointAction, this, _1), false),
 	action_name_(name),
 	waypt_max_speed_(100.0),
 	waypt_pos_acc_(3.0),
 	waypt_timeout_(10000) {
+
+	sendGpsWaypointToHlp =
+			boost::bind(&AciRemote::AciRemote::setGpsWaypoint, aci, _1);
+	fetchWayptNavStatus =
+			boost::bind(&AciRemote::AciRemote::getGpsWayptNavStatus, aci, _1, _2);
+	fetchWayptResultPose =
+			boost::bind(&AciRemote::AciRemote::getGpsWayptResultPose, aci, _1);
+
 	n_.param("geofence_service", geofence_srv_name_, std::string("geofence"));
 	// start action server
 	as_.start();
+
+	ROS_INFO_STREAM(action_name_ << ": GPS waypoint action server started");
 }
 
 WaypointGPSActionServer::~WaypointGPSActionServer() {
