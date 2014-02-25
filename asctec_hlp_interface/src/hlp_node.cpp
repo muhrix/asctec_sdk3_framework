@@ -20,23 +20,26 @@
 #include "asctec_hlp_comm/GpsCustom.h"
 
 #include "asctec_hlp_interface/AciRemote.h"
+#include "asctec_hlp_interface/WaypointGPSActionServer.h"
 
 int main(int argc, char* argv[]) {
 	ros::init(argc, argv, "hlp_node");
 	ros::NodeHandle nh;
 	ros::NodeHandle priv_nh("~");
 
-	// setup Asctec ACI
-	AciRemote::AciRemote hlp(priv_nh);
+	boost::shared_ptr<AciRemote::AciRemote> hlp =
+			boost::make_shared<AciRemote::AciRemote>(boost::ref(priv_nh));
 
-	if (hlp.init() < 0) {
+	if (hlp->init() < 0) {
 		return EXIT_FAILURE;
 	}
 
-	if (hlp.initRosLayer() < 0) {
+	if (hlp->initRosLayer() < 0) {
 		ROS_ERROR("ROS topics not advertised because data has not yet arrived from HLP");
 		return EXIT_FAILURE;
 	}
+
+	WaypointGPSActionServer hlp_waypt("hlp_gps_nav", hlp);
 
 	ros::spin();
 
