@@ -105,6 +105,7 @@ void WaypointGPSActionServer::GpsWaypointAction(
 	while (running == Waypoint::Action::RUNNING) {
 		// check if preempt has been requested by client (and if ROS is running ok)
 		if (as_.isPreemptRequested() || !ros::ok()) {
+			// TODO: send dummy waypoint with WP_CMD_ABORT command
 			running = Waypoint::Action::PREEMPTED;
 			break;
 		}
