@@ -131,6 +131,7 @@ private:
 
 	// Asctec SDK 3.0 data structures
 	struct WO_SDK_STRUCT WO_SDK_;
+	struct WO_SDK_STRUCT RO_SDK_;
 	struct RO_ALL_DATA RO_ALL_Data_;
 	//struct RO_RC_DATA RO_RC_Data_;
 	struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_DIMC_;

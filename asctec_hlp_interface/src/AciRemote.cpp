@@ -10,6 +10,10 @@
 #include "asctec_hlp_interface/AciRemote.h"
 #include "asctec_hlp_interface/Helper.h"
 
+#include <geometry_msgs/Vector3.h>
+#include <geometry_msgs/Quaternion.h>
+#include <tf/transform_datatypes.h>
+
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -199,7 +203,63 @@ int AciRemote::initRosLayer() {
 }
 
 void AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& pose) {
-	// TODO: make necessary unit conversions here
+	short uav_status;
+	double roll, pitch, yaw;
+	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+	uav_status = RO_ALL_Data_.UAV_status;
+	s_lock.unlock();
+
+	// check flight mode
+	if (uav_status & HLP_FLIGHTMODE_GPS) {
+		boost::mutex::scoped_lock lock(ctrl_mtx_);
+
+		// convert pose waypoint into HLP-format waypoint
+		WO_wpToLL_.X = static_cast<int>(pose->geo_pose.position.latitude * 1.0e7);
+		WO_wpToLL_.Y = static_cast<int>(pose->geo_pose.position.longitude * 1.0e7);
+		WO_wpToLL_.height = static_cast<int>(pose->geo_pose.position.altitude * 1.0e3);
+
+		tf::Quaternion q;
+		tf::quaternionMsgToTF(pose->geo_pose.orientation, q);
+		tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+		// yaw: 0...360000 => 1000 = 1 degree
+		WO_wpToLL_.yaw = static_cast<int>(yaw * 180000.0/M_PI);
+		// max speed in GPS mode is approx. 10 m/s
+		// see http://wiki.asctec.de/xwiki/bin/view/AscTec+UAVs/First+steps
+		WO_wpToLL_.max_speed =
+				static_cast<unsigned char>(std::min(100.0, pose->max_speed * 10.0));
+		WO_wpToLL_.time =
+				static_cast<unsigned short>(pose->timeout * 100.0);
+		WO_wpToLL_.pos_acc =
+				static_cast<unsigned short>(pose->position_accuracy * 1.0e3);
+
+		WO_wpToLL_.wp_activated = 1;
+		WO_wpToLL_.properties = WPPROP_ABSCOORDS | WPPROP_AUTOMATICGOTO
+				| WPPROP_HEIGHTENABLED | WPPROP_YAWENABLED;
+
+		WO_wpToLL_.chksum = 0xAAAA
+				+ WO_wpToLL_.yaw
+				+ WO_wpToLL_.height
+				+ WO_wpToLL_.time
+				+ WO_wpToLL_.X
+				+ WO_wpToLL_.Y
+				+ WO_wpToLL_.max_speed
+				+ WO_wpToLL_.pos_acc
+				+ WO_wpToLL_.properties
+				+ WO_wpToLL_.wp_activated;
+
+		wpCtrlWpCmd_ = WP_CMD_SINGLE_WP;
+
+		WO_SDK_.ctrl_mode = 0x03;
+		WO_SDK_.ctrl_enabled = 1;
+		WO_SDK_.disable_motor_onoff_by_stick = 0;
+
+		// update control commands packet
+		aciUpdateCmdPacket(0);
+		// update waypoint command packet
+		aciUpdateCmdPacket(2);
+
+		// TODO: function should return whether flight mode is the correct one
+	}
 }
 
 void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
@@ -207,11 +267,26 @@ void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
 	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 	waypt_nav_status = wpCtrlNavStatus_;
 	// current distance to waypoint is in dm (=10cm)
-	dist_to_goal = (double)wpCtrlDistToWp_ * 0.1;
+	dist_to_goal = double(wpCtrlDistToWp_) * 0.1;
 }
 
-void AciRemote::getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult&) {
-	// TODO: make necessary unit conversions here
+void AciRemote::getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult& result) {
+	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+
+	result.geo_pose.position.latitude =
+			static_cast<double>(RO_ALL_Data_.fusion_latitude) * 1.0e-7;
+	result.geo_pose.position.longitude =
+			static_cast<double>(RO_ALL_Data_.fusion_longitude) * 1.0e-7;
+	// TODO: check whether altitude should be GPS_height * 1.0e-3 instead
+	result.geo_pose.position.altitude =
+			static_cast<double>(RO_ALL_Data_.fusion_height * 1.0e-3);
+
+	// TODO: use data from IMU for more accurate estimate
+	tf::Quaternion q;
+	q.setRPY(0.0, 0.0, static_cast<double>(RO_ALL_Data_.GPS_heading)*M_PI/180000.0);
+	tf::quaternionTFToMsg(q, result.geo_pose.orientation);
+
+	result.status = wpCtrlNavStatus_;
 }
 
 
@@ -349,7 +424,7 @@ void AciRemote::setupCmdPackets() {
 	aciAddContentToCmdPacket(0, 0x0502, &WO_DIMC_.motor[2]);
 	aciAddContentToCmdPacket(0, 0x0503, &WO_DIMC_.motor[3]);
 
-	// packet ID 1 containing: CTRL -- DIMC and DMC not used here
+	// packet ID 1 containing: CTRL -- DMC not used here
 	aciAddContentToCmdPacket(1, 0x050A, &WO_CTRL_.pitch);
 	aciAddContentToCmdPacket(1, 0x050B, &WO_CTRL_.roll);
 	aciAddContentToCmdPacket(1, 0x050C, &WO_CTRL_.yaw);
@@ -461,9 +536,10 @@ void AciRemote::throttleEngine() {
 				if (must_stop_engine_)
 					return;
 
-				boost::mutex::scoped_lock s_lock(ctrl_mtx_);
+				boost::unique_lock<boost::mutex> ctrl_lock(ctrl_mtx_);
 				// throttle ACI Engine
 				aciEngine();
+				ctrl_lock.unlock();
 
 				// lock shared mutex: get upgradable then exclusive access
 				boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
@@ -621,7 +697,7 @@ void AciRemote::publishGpsData() {
 					gps_custom_msg->longitude =
 							static_cast<double>(RO_ALL_Data_.fusion_longitude) * 1.0e-7;
 					gps_custom_msg->altitude =
-							static_cast<double>(RO_ALL_Data_.GPS_height) * 1.0e-7;
+							static_cast<double>(RO_ALL_Data_.GPS_height) * 1.0e-3;
 					gps_custom_msg->position_covariance[0] = var_h;
 					gps_custom_msg->position_covariance[4] = var_h;
 					gps_custom_msg->position_covariance[8] = var_v;
@@ -772,6 +848,8 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
 
 bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 		asctec_hlp_comm::HlpCtrlSrv::Response& res) {
+	// TODO: analyse whether the lock should be acquired only just before the call
+	// to aciUpdateCmdPacket()
 	boost::mutex::scoped_lock lock(ctrl_mtx_);
 
 	/*
