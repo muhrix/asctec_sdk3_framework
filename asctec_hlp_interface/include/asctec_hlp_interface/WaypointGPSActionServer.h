@@ -20,7 +20,6 @@
 #include <geographic_msgs/GeoPose.h>
 #include <actionlib/server/simple_action_server.h>
 #include "asctec_hlp_comm/WaypointGPSAction.h"
-#include "asctec_hlp_comm/GeofencePoint.h"
 #include "asctec_hlp_comm/GeofenceSrv.h"
 
 #include "asctec_hlp_interface/AsctecSDK3.h"
