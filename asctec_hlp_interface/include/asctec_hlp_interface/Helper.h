@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef HELPER_H_
 #define HELPER_H_
 
-#include <asctec_hl_comm/mav_ctrl.h>
+#include <asctec_hlp_comm/mav_ctrl.h>
 #include <tf/transform_datatypes.h>
 
 namespace helper
