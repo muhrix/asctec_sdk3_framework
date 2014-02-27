@@ -43,7 +43,7 @@ public:
 	int init();
 	int initRosLayer();
 
-	void setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
+	int setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
 	void getGpsWayptNavStatus(unsigned short&, double&);
 	void getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult&);
 

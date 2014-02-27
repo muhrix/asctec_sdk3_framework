@@ -202,7 +202,7 @@ int AciRemote::initRosLayer() {
 	return -1;
 }
 
-void AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& pose) {
+int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& pose) {
 	short uav_status;
 	double roll, pitch, yaw;
 	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
@@ -257,9 +257,11 @@ void AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& p
 		aciUpdateCmdPacket(0);
 		// update waypoint command packet
 		aciUpdateCmdPacket(2);
-
-		// TODO: function should return whether flight mode is the correct one
 	}
+	else {
+		return -1;
+	}
+	return 0;
 }
 
 void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
@@ -361,8 +363,9 @@ void AciRemote::setupVarPackets() {
 	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
 	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
 	// debug variables
-	aciAddContentToVarPacket(0, 0x1016, &debug1_);
-	aciAddContentToVarPacket(0, 0x1017, &debug2_);
+	aciAddContentToVarPacket(0, 0x100E, &RO_SDK_.ctrl_mode);
+	aciAddContentToVarPacket(0, 0x100F, &RO_SDK_.ctrl_enabled);
+	aciAddContentToVarPacket(0, 0x1010, &RO_SDK_.disable_motor_onoff_by_stick);
 	aciAddContentToVarPacket(0, 0x1015, &debug3_);
 
 	// packet ID 1 containing: GPS data
@@ -807,8 +810,8 @@ void AciRemote::publishStatusMotorsRcData() {
 					status_msg->gps_num_satellites = RO_ALL_Data_.GPS_sat_num;
 
 					// debug variables
-					status_msg->debug1 = static_cast<unsigned short>(debug1_);
-					status_msg->debug2 = static_cast<unsigned short>(debug2_);
+					status_msg->debug1 = static_cast<unsigned short>(RO_SDK_.ctrl_mode);
+					status_msg->debug2 = static_cast<unsigned short>(RO_SDK_.ctrl_enabled);
 					status_msg->debug3 = static_cast<unsigned short>(debug3_);
 
 					status_pub_.publish(status_msg);
