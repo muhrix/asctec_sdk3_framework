@@ -28,7 +28,8 @@
 
 namespace Waypoint {
 	namespace Action {
-		typedef enum {SUCCEEDED = 0, RUNNING, PREEMPTED, ABORTED, OUT_OF_GEOFENCE, VALID} action_t;
+		typedef enum {SUCCEEDED = 0, RUNNING, PREEMPTED, ABORTED,
+			OUT_OF_GEOFENCE, VALID, WRONG_FLIGHT_MODE} action_t;
 	}
 	namespace Status {
 		typedef enum {REACHED_POS = 0, REACHED_POS_TIME, WITHIN_20M, PILOT_ABORT } status_t;
@@ -77,7 +78,7 @@ private:
 	int verifyGeofence();
 	Waypoint::Action::action_t verifyGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
 
-	boost::function<void (const asctec_hlp_comm::WaypointGPSGoalConstPtr&)>
+	boost::function<int (const asctec_hlp_comm::WaypointGPSGoalConstPtr&)>
 		sendGpsWaypointToHlp;
 	boost::function<void (unsigned short&, double&)> fetchWayptNavStatus;
 	boost::function<void (asctec_hlp_comm::WaypointGPSResult&)> fetchWayptResultPose;

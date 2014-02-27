@@ -84,6 +84,7 @@ void WaypointGPSActionServer::GpsWaypointAction(
 	double roll, pitch, yaw;
 	unsigned short nav_status;
 	double dist_to_goal;
+	int flight_mode;
 
 	tf::Quaternion q;
 	tf::quaternionMsgToTF(goal->geo_pose.orientation, q);
@@ -92,14 +93,19 @@ void WaypointGPSActionServer::GpsWaypointAction(
 	running = verifyGpsWaypoint(goal);
 
 	if (running == Waypoint::Action::VALID) {
-		ROS_INFO_STREAM("Flying to GPS waypoint (" << goal->geo_pose.position.latitude << ", "
-				<< goal->geo_pose.position.longitude << ", "
-				<< goal->geo_pose.position.altitude << ", "
-				<< (yaw * 180.0 / M_PI) << ")");
-
 		// assign the newly defined GPS waypoint to ACI Engine
-		sendGpsWaypointToHlp(goal);
-		running = Waypoint::Action::RUNNING;
+		flight_mode = sendGpsWaypointToHlp(goal);
+		if (flight_mode == 0) {
+			ROS_INFO_STREAM("Flying to GPS waypoint ("
+					<< goal->geo_pose.position.latitude << ", "
+					<< goal->geo_pose.position.longitude << ", "
+					<< goal->geo_pose.position.altitude << ", "
+					<< (yaw * 180.0 / M_PI) << ")");
+			running = Waypoint::Action::RUNNING;
+		}
+		else {
+			running = Waypoint::Action::WRONG_FLIGHT_MODE;
+		}
 	}
 	// loop reading GPS waypoint navigation status variables
 	while (running == Waypoint::Action::RUNNING) {
@@ -144,6 +150,10 @@ void WaypointGPSActionServer::GpsWaypointAction(
 	}
 	else if (running == Waypoint::Action::ABORTED) {
 		ROS_INFO_STREAM(action_name_ << ": Aborted by HLP/safety pilot");
+		as_.setAborted();
+	}
+	else if (running == Waypoint::Action::WRONG_FLIGHT_MODE) {
+		ROS_INFO_STREAM(action_name_ << ": Aborted (flight mode is not GPS)");
 		as_.setAborted();
 	}
 	else if (running == Waypoint::Action::SUCCEEDED) {
