@@ -30,7 +30,6 @@ DAMAGE.
 #define SDK_
 
 void SDK_mainloop(void);
-extern void rt_OneStep (void); //Matlab-Simulink code main
 extern unsigned char xbee_send_flag;
 
 
@@ -334,7 +333,7 @@ extern struct WAYPOINT wpToLL;
 extern struct WAYPOINT WO_wpToLL;
 
 extern unsigned short doBeep;
-extern unsigned short myTest;
+extern unsigned short wayptStatus;
 
 //set waypoint properties with WPPROP_* defines (wpToLL.properties)
 #define WPPROP_ABSCOORDS 			0x01	//if set waypoint is interpreted as absolute coordinates, else relative coordinates
@@ -361,11 +360,6 @@ extern unsigned short wpCtrlNavStatus; //check navigation status with WP_NAVSTAT
 #define WP_NAVSTAT_PILOT_ABORT			0x08	//waypoint navigation aborted by safety pilot (any stick was moved)
 
 extern unsigned short wpCtrlDistToWp; //current distance to the current waypoint in dm (=10 cm)
-extern unsigned char triggerSaveMatlabParams; //trigger command to save matlab parameters to flash
-
-//waypoint example global variables for jeti display
-extern unsigned char wpExampleWpNr;
-extern unsigned char wpExampleActive;
 
 //emergency mode prototype and global variables
 extern void SDK_SetEmergencyMode(unsigned char mode);

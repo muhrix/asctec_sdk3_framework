@@ -36,9 +36,6 @@ DAMAGE.
 #include "uart.h"
 #include "system.h"
 #include "lpc_aci_eeprom.h"
-#ifdef MATLAB
-#include "..\custom_mdl\onboard_matlab_ert_rtw\onboard_matlab.h"
-#endif
 
 struct WO_SDK_STRUCT WO_SDK;
 struct WO_CTRL_INPUT WO_CTRL_Input;
@@ -49,25 +46,12 @@ struct WO_DIRECT_INDIVIDUAL_MOTOR_CONTROL WO_Direct_Individual_Motor_Control;
 
 struct WAYPOINT WO_wpToLL;
 unsigned short doBeep = 0;
-unsigned short myTest = 0;
-
-//waypoint example global variables for jeti display
-unsigned char wpExampleWpNr=0;
-unsigned char wpExampleActive=0;
+unsigned short wayptStatus = 0;
 
 //emergency mode variables
 unsigned char emergencyMode;
 unsigned char emergencyModeUpdate=0;
 
-#ifdef MATLAB
-unsigned char xbee_send_flag=0;
-unsigned char triggerSaveMatlabParams=0; //trigger command to save matlab parameters to flash
-struct MATLAB_DEBUG matlab_debug;
-struct MATLAB_UART matlab_uart, matlab_uart_tmp;
-struct MATLAB_PARAMS matlab_params, matlab_params_tmp;
-
-void SDK_matlabMainLoop(void);
-#endif
 void SDK_EXAMPLE_direct_individual_motor_commands(void);
 void SDK_EXAMPLE_direct_motor_commands_with_standard_output_mapping(void);
 void SDK_EXAMPLE_attitude_commands(void);
@@ -167,18 +151,16 @@ int SDK_EXAMPLE_turn_motors_off(void);
  * with SDK_SetEmergencyMode(). If non was set, Direct Landing is activated.
  */
 
+void handleWayptPacket(void);
+
 void SDK_mainloop(void)
 {
-#ifdef MATLAB
-	SDK_matlabMainLoop(); //this runs only in combination with the AscTec Simulink Toolkit
-
-	//jeti telemetry can always be activated. You may deactivate this call if you don't have the AscTec Telemetry package.
-	SDK_jetiAscTecExampleRun();
-
-#else //write your own C-code within this function
+	//write your own C-code within this function
 
 	//you can select an example by using ONE of the functions below.
 	//CAUTION! Read the code of the examples before you test them on your UAV!
+
+
 
 	//example to turn motors on and off every 2 seconds
 	/*
@@ -189,7 +171,7 @@ void SDK_mainloop(void)
 	*/
 
 
-
+	/*
 	static int init_timer = 0;
 	static int timer = 0;
 	if (init_timer == 15000) {
@@ -199,7 +181,7 @@ void SDK_mainloop(void)
 //			else if (timer < 3100) buzzer(ON);
 //			else {
 //				timer = 0;
-//				++myTest;
+//				++wayptStatus;
 //			}
 //		}
 //		else {
@@ -212,11 +194,12 @@ void SDK_mainloop(void)
 
 		// the code (within if statement) below is working
 		if (++timer == 1000) {
-			myTest = myTest + doBeep + 1;
+			wayptStatus = wayptStatus + doBeep + 1;
 			timer = 0;
 		}
 	}
 	else ++init_timer;
+	*/
 
 
 
@@ -249,15 +232,88 @@ void SDK_mainloop(void)
 	//SDK_EXAMPLE_direct_motor_commands_with_standard_output_mapping();
 	//SDK_EXAMPLE_attitude_commands();
 	//SDK_EXAMPLE_gps_waypoint_control();
-
-	//jeti telemetry can always be activated. You may deactivate this call if you don't use the AscTec Telemetry package.
-	//SDK_jetiAscTecExampleRun();
-
-	//if (wpExampleActive) //this is used to activate the waypoint example via the jeti telemetry display
-	//	SDK_EXAMPLE_gps_waypoint_control();
-
-#endif
 }
+
+void handleWayptPacket(void) {
+	static int initial_height;
+	switch (wayptStatus) {
+	case 0:
+		// check if GPS flight mode (0x07) is enabled AND
+		// if GPS control mode and serial comm are enabled
+		if ( (RO_ALL_Data.UAV_status & 0x0F == 0x07) &&
+				(WO_SDK.ctrl_mode == 0x03) && (WO_SDK.ctrl_enabled == 1) ) {
+			// fight and control modes, as well as serial are enabled, move on to next state
+			wayptStatus = 1;
+		}
+		break;
+
+	case 1:
+		if (RO_ALL_Data.channel[6] > 2400) {
+			// analog dial was rotated clockwise/positioned to right-most position
+			wayptStatus = 2;
+		}
+		break;
+
+	case 2:
+		if (RO_ALL_Data.channel[6] < 1600) {
+			// analog dial was rotated counter-clockwise/positioned to left-most position
+			wayptStatus = 3;
+		}
+		break;
+
+	case 3:
+		if (RO_ALL_Data.channel[6] > 2400) {
+			// analog dial was rotated clockwise/positioned to right-most position
+			initial_height = RO_ALL_Data.fusion_height;
+			wayptStatus = 4;
+		}
+		break;
+
+	case 4:
+		// when entering this state, it is assumed that:
+		// 1) flight and control modes are set to GPS
+		// 2) serial switch is enabled
+		// 3) analog dial switching sequence was performed
+		if (WO_wpToLL.wp_activated == 1) {
+			// assign received waypoint to struct sent to LLP
+			wpToLL = WO_wpToLL;
+
+			// TODO: make some safety/sanity checks...
+
+			// ensure there is a safe clearance from ground
+			// things could still go really bad here!
+			if (wpToLL.height < initial_height) {
+				wpToLL.height = RO_ALL_Data.fusion_height;
+			}
+
+			// send waypoint to LLP
+			// wpCtrlAckTrigger is set to 1 when the LLP accepts the waypoint
+			wpCtrlAckTrigger = 0;
+			// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
+			// TODO: remote device currently sets this value; redesign required here
+			// overwriting just in case
+			wpCtrlWpCmd = WP_CMD_SINGLE_WP;
+			// wpCtrlWpCmdUpdated must be set to 1 in order for the waypoint to be sent
+			// to LLP; once it is sent, its value is reset (i.e., set to 0)
+			wpCtrlWpCmdUpdated = 1;
+
+			// move on to next state, remembering to de-activate the waypoint
+			WO_wpToLL.wp_activated = 0;
+			wayptStatus = 5;
+		}
+		break;
+
+	case 5:
+
+		break;
+
+	default:
+		break;
+	}
+}
+
+
+
 
 
 /*
@@ -394,12 +450,12 @@ void SDK_EXAMPLE_gps_waypoint_control()
 	{
 		//prior to start, the lever on channel 7 has to be in "OFF" position
 		case 0:
-		if ((RO_ALL_Data.channel[6]<1600) || (wpExampleActive))
+		if ((RO_ALL_Data.channel[6]<1600))
 			wpExampleState=1;
 		break;
 
 		case 1:
-		if ((RO_ALL_Data.channel[6]>2400) || (wpExampleActive))
+		if ((RO_ALL_Data.channel[6]>2400))
 		{
 			double lat,lon;
 			//lever was set to "ON" state -> calculate and send first waypoint and switch state
@@ -442,7 +498,6 @@ void SDK_EXAMPLE_gps_waypoint_control()
 			wpCtrlAckTrigger=0;
 			wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 			wpCtrlWpCmdUpdated=1;
-			wpExampleWpNr=0;
 			wpExampleState=2;
 
 		}
@@ -492,20 +547,18 @@ void SDK_EXAMPLE_gps_waypoint_control()
 					wpCtrlAckTrigger=0;
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
-					wpExampleWpNr++;
 
 					wpExampleState=3;
 				}
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpExampleState=0;
 				}
 
 
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpExampleState=0;
 		break;
 
@@ -554,20 +607,18 @@ void SDK_EXAMPLE_gps_waypoint_control()
 					wpCtrlAckTrigger=0;
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
-					wpExampleWpNr++;
 
 					wpExampleState=4;
 				}
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpExampleState=0;
 				}
 
 
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpExampleState=0;
 		break;
 
@@ -614,21 +665,17 @@ void SDK_EXAMPLE_gps_waypoint_control()
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
 
-					wpExampleWpNr++;
-
 					wpExampleState=0;
-					wpExampleActive=0;
 				}
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpExampleState=0;
 				}
 
 
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpExampleState=0;
 		break;
 
@@ -654,14 +701,14 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 	{
 		//prior to start, the lever on channel 7 has to be in "OFF" position
 		case 0:
-		if ((RO_ALL_Data.channel[6]<1600) || (wpExampleActive)) {
+		if ((RO_ALL_Data.channel[6]<1600)) {
 			wpFEIWayptState=1;
 			beep = 1;
 		}
 		break;
 
 		case 1:
-			if ((RO_ALL_Data.channel[6]>2400) || (wpExampleActive))
+			if ((RO_ALL_Data.channel[6]>2400))
 			{
 				double lat,lon;
 				//lever was set to "ON" state -> calculate and send first waypoint and switch state
@@ -704,7 +751,6 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 				wpCtrlAckTrigger=0;
 				wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 				wpCtrlWpCmdUpdated=1;
-				wpExampleWpNr=0;
 
 				wpFEIWayptState=2;
 				beep = 1;
@@ -755,7 +801,6 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 					wpCtrlAckTrigger=0;
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
-					wpExampleWpNr++;
 
 					wpFEIWayptState=3;
 					beep = 1;
@@ -763,11 +808,10 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpFEIWayptState=0;
 				}
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpFEIWayptState=0;
 		break;
 
@@ -816,7 +860,6 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 					wpCtrlAckTrigger=0;
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
-					wpExampleWpNr++;
 
 					wpFEIWayptState=4;
 					beep = 1;
@@ -824,11 +867,10 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpFEIWayptState=0;
 				}
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpFEIWayptState=0;
 		break;
 
@@ -877,7 +919,6 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 					wpCtrlAckTrigger=0;
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
-					wpExampleWpNr++;
 
 					wpFEIWayptState=5;
 					beep = 1;
@@ -885,11 +926,10 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpFEIWayptState=0;
 				}
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpFEIWayptState=0;
 		break;
 
@@ -936,20 +976,16 @@ unsigned char SDK_FEI_gps_waypoint_control(void)
 					wpCtrlWpCmd=WP_CMD_SINGLE_WP;
 					wpCtrlWpCmdUpdated=1;
 
-					wpExampleWpNr++;
-
 					wpFEIWayptState=0;
-					wpExampleActive=0;
 					beep = 1;
 				}
 
 				if (wpCtrlNavStatus&WP_NAVSTAT_PILOT_ABORT)
 				{
-					wpExampleActive=0;
 					wpFEIWayptState=0;
 				}
 			}
-			if ((RO_ALL_Data.channel[6]<1600) && (wpExampleActive==0))
+			if ((RO_ALL_Data.channel[6]<1600))
 						wpFEIWayptState=0;
 		break;
 
@@ -1030,45 +1066,3 @@ int SDK_EXAMPLE_turn_motors_off(void) //hold throttle stick down and yaw stick f
 		return(0);
 	}
 }
-
-
-#ifdef MATLAB
-
-void SDK_matlabMainLoop()
-{
-	static unsigned short uart_count = 1; //counter for uart communication
-
-
-		/* put your own c-code here */
-
-		rt_OneStep(); //call RTW function rt_OneStep
-		//ctrl_mode is set in rt_one_step
-
-		/* put your own c-code here */
-
-
-		//don't touch anything below here
-
-		//debug packet handling
-		if (uart_count==0 && xbee_send_flag) //call function for uart transmission with 50 Hz
-		{
-			matlab_debug.cpu_load = HL_Status.cpu_load;
-			matlab_debug.battery_voltage = HL_Status.battery_voltage_1;
-
-			UART_Matlab_SendPacket(&matlab_debug, sizeof(matlab_debug), 'd');
-		}
-		uart_count++;
-		uart_count%=ControllerCyclesPerSecond/50;
-
-		//save parameters only while not flying
-		if ((!RO_ALL_Data.flying) && (triggerSaveMatlabParams))
-		{
-			triggerSaveMatlabParams=0;
-			lpc_aci_SavePara();
-			lpc_aci_WriteParatoFlash();
-		}
-
-}
-
-
-#endif
