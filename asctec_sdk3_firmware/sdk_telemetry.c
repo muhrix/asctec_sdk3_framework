@@ -9,7 +9,7 @@
 
 
 void SDK_jetiAscTecExampleUpdateDisplay(unsigned char state) {
-	char text[31];
+/*	char text[31];
 	switch (state) {
 	//				Line	   11111111111111112222222222222222
 	case 0:
@@ -46,11 +46,11 @@ void SDK_jetiAscTecExampleUpdateDisplay(unsigned char state) {
 		sprintf(&text,"WP Act. v=Stop <>WP# %2i Dist: %2im",wpExampleWpNr,wpCtrlDistToWp/10);
 		jetiSetTextDisplay((unsigned char *)&text);
 		break;
-	}
+	}*/
 }
 
 void SDK_jetiAscTecExampleKeyChange(unsigned char key) {
-	static unsigned char displayState = 0;
+/*	static unsigned char displayState = 0;
 
 	switch (displayState) {
 	case 0:
@@ -175,17 +175,17 @@ void SDK_jetiAscTecExampleKeyChange(unsigned char key) {
 		break;
 	}
 
-	SDK_jetiAscTecExampleUpdateDisplay(displayState);
+	SDK_jetiAscTecExampleUpdateDisplay(displayState);*/
 }
 
 void SDK_jetiAscTecExampleInit(void) {
-	jetiSetDeviceName("AscTec SDK");
+/*	jetiSetDeviceName("AscTec SDK");
 	jetiSetTextDisplay("AscTec Example  ->more Infos");
-	jetiInitValue(0, "Pitch", "°");
+	jetiInitValue(0, "Pitch", "ï¿½");
 	jetiSetDecimalPoint(0, 2);
-	jetiInitValue(1, "Roll", "°");
+	jetiInitValue(1, "Roll", "ï¿½");
 	jetiSetDecimalPoint(1, 2);
-	jetiInitValue(2, "Yaw", "°");
+	jetiInitValue(2, "Yaw", "ï¿½");
 	jetiSetDecimalPoint(2, 2);
 	jetiInitValue(3, "Height", "m");
 	jetiSetDecimalPoint(3, 2);
@@ -214,11 +214,11 @@ void SDK_jetiAscTecExampleInit(void) {
 	jetiSetValue22B(11, 0);
 	jetiSetValue22B(12, 0);
 
-	SDK_jetiAscTecExampleUpdateDisplay(0);
+	SDK_jetiAscTecExampleUpdateDisplay(0);*/
 }
 
 void SDK_jetiAscTecExampleRun(void) {
-	int speed;
+/*	int speed;
 	int gps_quality;
 	unsigned char key;
 	static unsigned char first = 0;
@@ -277,5 +277,5 @@ void SDK_jetiAscTecExampleRun(void) {
 	{
 		SDK_jetiAscTecExampleKeyChange(key);
 		jetiDisplayUpdateCnt=0;
-	}
+	}*/
 }
