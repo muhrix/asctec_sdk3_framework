@@ -1,3 +1,4 @@
-geographic_msgs/GeoPoint[]     geofence
+geographic_msgs/GeoPoint[]  geofence
+std_msgs/Bool               append
 ---
-geographic_msgs/GeoPoint[]     curr_geofence
+geographic_msgs/GeoPoint[]  curr_geofence
