@@ -10,7 +10,18 @@
 #ifndef WAYPOINTGPSACTIONSERVER_H_
 #define WAYPOINTGPSACTIONSERVER_H_
 
+#include <vector>
+#include <utility>
+#include <algorithm>
+
 #include <boost/function.hpp>
+#include <boost/thread/mutex.hpp>
+
+// notice that the header-only implementation of Boost Geometry
+// is part of the asctec_hlp_interface ROS package (current version: v1.55)
+#include "boost/geometry/geometry.hpp"
+#include "boost/geometry/geometries/point_xy.hpp"
+#include "boost/geometry/geometries/polygon.hpp"
 
 #include <ros/ros.h>
 #include <geometry_msgs/Vector3.h>
@@ -24,6 +35,12 @@
 
 #include "asctec_hlp_interface/AsctecSDK3.h"
 #include "asctec_hlp_interface/AciRemote.h"
+
+typedef boost::geometry::model::point
+	<
+		double, 2, boost::geometry::cs::spherical_equatorial<boost::geometry::degree>
+	> spherical_point_type;
+typedef boost::geometry::model::polygon<spherical_point_type> polygon_type;
 
 namespace Waypoint {
 	namespace Action {
@@ -65,8 +82,10 @@ private:
 	double waypt_max_speed_;
 	double waypt_pos_acc_;
 	double waypt_timeout_;
-	boost::shared_ptr<geographic_msgs::GeoPose> waypoint_;
-	std::vector<boost::shared_ptr<geographic_msgs::GeoPoint> > geofence_;
+	bool valid_geofence_;
+	boost::mutex geo_mtx_;
+	polygon_type geofence_;
+	std::vector<std::pair<double, double> > geo_points_;
 
 //private:
 	void GpsWaypointAction(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
@@ -74,7 +93,7 @@ private:
 	bool geofenceServiceCallback(asctec_hlp_comm::GeofenceSrv::Request&,
 			asctec_hlp_comm::GeofenceSrv::Response&);
 
-	int verifyGeofence();
+	void verifyGeofence();
 	Waypoint::Action::action_t verifyGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
 
 	boost::function<int (const asctec_hlp_comm::WaypointGPSGoalConstPtr&)>
