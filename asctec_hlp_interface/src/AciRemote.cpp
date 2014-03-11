@@ -210,7 +210,7 @@ int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& po
 	s_lock.unlock();
 
 	// check flight mode
-	if ((uav_status & 0x0007) == HLP_FLIGHTMODE_GPS) {
+	if ((uav_status & 0x000F) == HLP_FLIGHTMODE_GPS) {
 		boost::mutex::scoped_lock lock(ctrl_mtx_);
 
 		// convert pose waypoint into HLP-format waypoint
