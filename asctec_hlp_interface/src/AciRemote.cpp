@@ -63,7 +63,7 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("status_topic", status_topic_, std::string("status"));
 	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
 	n_.param("ctrl_topic", ctrl_topic_, std::string("uav_control"));
-	n_.param("ctrl_service", ctrl_srv_name_, std::string("uav_control"));
+	n_.param("ctrl_service", ctrl_srv_name_, std::string("set_uav_control"));
 
 
 	// TODO: Initialise Asctec SDK3 Command data structures before enabling RC serial switch
@@ -210,7 +210,7 @@ int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& po
 	s_lock.unlock();
 
 	// check flight mode
-	if (uav_status & HLP_FLIGHTMODE_GPS) {
+	if ((uav_status & 0x0007) == HLP_FLIGHTMODE_GPS) {
 		boost::mutex::scoped_lock lock(ctrl_mtx_);
 
 		// convert pose waypoint into HLP-format waypoint
