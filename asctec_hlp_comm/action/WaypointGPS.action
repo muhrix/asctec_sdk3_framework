@@ -3,6 +3,7 @@ geographic_msgs/GeoPose     geo_pose
 float32                     max_speed      # m/s
 float32 			        position_accuracy # radius within which the goal is considered reached
 float32                     timeout # timeout in [s] after which flying to the waypoint stops
+uint8                       command # see sdk.h for WP_CMD_* defines
 ---
 #result
 geographic_msgs/GeoPose     geo_pose
