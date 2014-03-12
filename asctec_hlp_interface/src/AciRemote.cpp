@@ -247,7 +247,8 @@ int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& po
 				+ WO_wpToLL_.properties
 				+ WO_wpToLL_.wp_activated;
 
-		wpCtrlWpCmd_ = WP_CMD_SINGLE_WP;
+		//wpCtrlWpCmd_ = WP_CMD_SINGLE_WP;
+		wpCtrlWpCmd_ = static_cast<unsigned char>(pose->command);
 
 		WO_SDK_.ctrl_mode = 0x03;
 		WO_SDK_.ctrl_enabled = 1;
