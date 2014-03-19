@@ -290,24 +290,49 @@ void handleWayptPacket(void) {
 			// wpCtrlAckTrigger is set to 1 when the LLP accepts the waypoint
 			wpCtrlAckTrigger = 0;
 			// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
-			// TODO: remote device currently sets this value; redesign required here
-			// overwriting just in case
-			wpCtrlWpCmd = WP_CMD_SINGLE_WP;
+			// TODO: remote device currently sets this value and there is no need to change it
+			// revise this setting!!!
+			//wpCtrlWpCmd = WP_CMD_SINGLE_WP;
+
 			// wpCtrlWpCmdUpdated must be set to 1 in order for the waypoint to be sent
 			// to LLP; once it is sent, its value is reset (i.e., set to 0)
 			wpCtrlWpCmdUpdated = 1;
 
-			// move on to next state, remembering to de-activate the waypoint
+			// move on to next state,
+			// remembering to de-activate the waypoint struct which is set by remote
 			WO_wpToLL.wp_activated = 0;
 			wayptStatus = 5;
 		}
 		break;
 
 	case 5:
+		// check if waypoint was sent to and accepted by the LLP
+		if ((wpCtrlWpCmdUpdated == 0) && (wpCtrlAckTrigger)) {
+			//check if waypoint was reached and wait time is over
+			//if (wpCtrlNavStatus & WP_NAVSTAT_REACHED_POS_TIME) {
 
+			//}
+			if (wpCtrlNavStatus & WP_NAVSTAT_PILOT_ABORT) {
+				wayptStatus = 0;
+			}
+			else {
+				wayptStatus = 4;
+			}
+		}
+		// check if pilot aborted waypoint navigation via dial switch
+		if (RO_ALL_Data.channel[6] < 1600) {
+			// send ABORT command...
+			wpCtrlAckTrigger = 0;
+			wpCtrlWpCmd = WP_CMD_ABORT;
+			wpToLL.wp_activated = 1;
+			wpCtrlWpCmdUpdated = 1;
+			// and disable waypoint navigation
+			wayptStatus = 0;
+		}
 		break;
 
 	default:
+		wayptStatus = 0;
 		break;
 	}
 }
