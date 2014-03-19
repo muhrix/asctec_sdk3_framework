@@ -118,6 +118,13 @@ void WaypointGPSActionServer::GpsWaypointAction(
 		// check if preempt has been requested by client (and if ROS is running ok)
 		if (as_.isPreemptRequested() || !ros::ok()) {
 			// TODO: send dummy waypoint with WP_CMD_ABORT command
+			asctec_hlp_comm::WaypointGPSGoalPtr abort_goal;
+			abort_goal->command = WP_CMD_ABORT;
+			abort_goal->geo_pose = goal->geo_pose;
+			abort_goal->max_speed = waypt_max_speed_;
+			abort_goal->position_accuracy = waypt_pos_acc_;
+			abort_goal->timeout = waypt_timeout_;
+
 			running = Waypoint::Action::PREEMPTED;
 			break;
 		}
