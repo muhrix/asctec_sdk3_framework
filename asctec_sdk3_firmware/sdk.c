@@ -160,8 +160,6 @@ void SDK_mainloop(void)
 	//you can select an example by using ONE of the functions below.
 	//CAUTION! Read the code of the examples before you test them on your UAV!
 
-
-
 	//example to turn motors on and off every 2 seconds
 	/*
  	static int timer=0;
@@ -170,6 +168,14 @@ void SDK_mainloop(void)
 	else timer=0;
 	*/
 
+	//examples which show the different control modes
+
+	//SDK_EXAMPLE_direct_individual_motor_commands();
+	//SDK_EXAMPLE_direct_motor_commands_with_standard_output_mapping();
+	//SDK_EXAMPLE_attitude_commands();
+	//SDK_EXAMPLE_gps_waypoint_control();
+
+	handleWayptPacket();
 
 	/*
 	static int init_timer = 0;
@@ -224,23 +230,16 @@ void SDK_mainloop(void)
 	}
 	else ++init_timer;
 	*/
-
-
-	//examples which show the different control modes
-
-	//SDK_EXAMPLE_direct_individual_motor_commands();
-	//SDK_EXAMPLE_direct_motor_commands_with_standard_output_mapping();
-	//SDK_EXAMPLE_attitude_commands();
-	//SDK_EXAMPLE_gps_waypoint_control();
 }
 
 void handleWayptPacket(void) {
 	static int initial_height;
+	static int timer = 0;
 	switch (wayptStatus) {
 	case 0:
 		// check if GPS flight mode (0x07) is enabled AND
 		// if GPS control mode and serial comm are enabled
-		if ( (RO_ALL_Data.UAV_status & 0x0F == 0x07) &&
+		if ( ((RO_ALL_Data.UAV_status & 0x0F) == 0x07) &&
 				(WO_SDK.ctrl_mode == 0x03) && (WO_SDK.ctrl_enabled == 1) ) {
 			// fight and control modes, as well as serial are enabled, move on to next state
 			wayptStatus = 1;
@@ -274,64 +273,90 @@ void handleWayptPacket(void) {
 		// 1) flight and control modes are set to GPS
 		// 2) serial switch is enabled
 		// 3) analog dial switching sequence was performed
-		if (WO_wpToLL.wp_activated == 1) {
-			// assign received waypoint to struct sent to LLP
-			wpToLL = WO_wpToLL;
+		// 4) previous waypoints (if any) have been accepted and acknowledged by LLP
 
-			// TODO: make some safety/sanity checks...
+		// however, since the state machine will loop from 4 to 5 to 4 and so forth,
+		// the flight and control modes must be checked prior to sending a new waypoint to LLP
+		if ( ((RO_ALL_Data.UAV_status & 0x0F) == 0x07) &&
+				(WO_SDK.ctrl_mode == 0x03) && (WO_SDK.ctrl_enabled == 1) ) {
+			// fight and control modes, as well as serial are enabled
+			if (WO_wpToLL.wp_activated == 1) {
+				// assign received waypoint to struct sent to LLP
+				wpToLL = WO_wpToLL;
 
-			// ensure there is a safe clearance from ground
-			// things could still go really bad here!
-			if (wpToLL.height < initial_height) {
-				wpToLL.height = RO_ALL_Data.fusion_height;
+				// TODO: make some safety/sanity checks...
+
+				// ensure there is a safe clearance from ground
+				// things could still go really bad here!
+				if (wpToLL.height < initial_height) {
+					wpToLL.height = RO_ALL_Data.fusion_height;
+				}
+
+				// send waypoint to LLP
+				// wpCtrlAckTrigger is set to 1 when the LLP accepts the waypoint
+				wpCtrlAckTrigger = 0;
+				// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
+				// TODO: remote device currently sets this value and there is no need to change it
+				// revise this setting!!!
+				// 3 Apr 2014: I believe the remote should set this value, so not changing and...
+				// hence this part will be deleted after field tests
+				//wpCtrlWpCmd = WP_CMD_SINGLE_WP;
+
+				// wpCtrlWpCmdUpdated must be set to 1 in order for the waypoint to be sent
+				// to LLP; once it is sent, its value is reset (i.e., set to 0)
+				wpCtrlWpCmdUpdated = 1;
+
+				// remembering to de-activate the waypoint struct, which is set by remote
+				WO_wpToLL.wp_activated = 0;
+
+				// initialise timeout counter
+				timer = 0;
 			}
-
-			// send waypoint to LLP
-			// wpCtrlAckTrigger is set to 1 when the LLP accepts the waypoint
-			wpCtrlAckTrigger = 0;
-			// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
-			// TODO: remote device currently sets this value and there is no need to change it
-			// revise this setting!!!
-			//wpCtrlWpCmd = WP_CMD_SINGLE_WP;
-
-			// wpCtrlWpCmdUpdated must be set to 1 in order for the waypoint to be sent
-			// to LLP; once it is sent, its value is reset (i.e., set to 0)
-			wpCtrlWpCmdUpdated = 1;
-
-			// move on to next state,
-			// remembering to de-activate the waypoint struct which is set by remote
-			WO_wpToLL.wp_activated = 0;
+			// move on to next state where checks for ABORT/timeout are performed
 			wayptStatus = 5;
 		}
-		break;
-
-	case 5:
-		// check if waypoint was sent to and accepted by the LLP
-		if ((wpCtrlWpCmdUpdated == 0) && (wpCtrlAckTrigger)) {
-			//check if waypoint was reached and wait time is over
-			//if (wpCtrlNavStatus & WP_NAVSTAT_REACHED_POS_TIME) {
-
-			//}
-			if (wpCtrlNavStatus & WP_NAVSTAT_PILOT_ABORT) {
-				wayptStatus = 0;
-			}
-			else {
-				wayptStatus = 4;
-			}
-		}
-		// check if pilot aborted waypoint navigation via dial switch
-		if (RO_ALL_Data.channel[6] < 1600) {
-			// send ABORT command...
-			wpCtrlAckTrigger = 0;
-			wpCtrlWpCmd = WP_CMD_ABORT;
-			wpToLL.wp_activated = 1;
-			wpCtrlWpCmdUpdated = 1;
-			// and disable waypoint navigation
+		else {
 			wayptStatus = 0;
 		}
 		break;
 
+	case 5:
+		// check if pilot aborted waypoint navigation by moving any stick on the transmitter
+		if (wpCtrlNavStatus & WP_NAVSTAT_PILOT_ABORT) {
+			// only reset the state machine, as the pilot has already taken manual control
+			wayptStatus = 0;
+		}
+		// check if pilot aborted waypoint navigation via dial switch
+		else if (RO_ALL_Data.channel[6] < 1600) {
+			// send ABORT waypoint command...
+			wpCtrlAckTrigger = 0;
+			wpCtrlWpCmd = WP_CMD_ABORT;
+			wpToLL.wp_activated = 1;
+			wpCtrlWpCmdUpdated = 1;
+			// and disable waypoint navigation (reset state machine)
+			wayptStatus = 0;
+		}
+		// check if waypoint was sent to and accepted by the LLP
+		else if ((wpCtrlWpCmdUpdated == 0) && (wpCtrlAckTrigger == 1)) {
+			// if so, loop to state 4 where new points may be set
+			wayptStatus = 4;
+		}
+		// check if 5 seconds have passed and LLP has not accepted not acknowledged new waypoint
+		else if (++timer >= 5000) {
+			// reset state machine, as timeout occurred
+			wayptStatus = 0;
+			// TODO: this is unlikely to happen, but if it were the case, how else could
+			// the remote know there was a timeout here? (wayptStatus = 0 is ambiguous)
+		}
+		break;
+
 	default:
+		// send ABORT command...
+		wpCtrlAckTrigger = 0;
+		wpCtrlWpCmd = WP_CMD_ABORT;
+		wpToLL.wp_activated = 1;
+		wpCtrlWpCmdUpdated = 1;
+		// and disable waypoint navigation
 		wayptStatus = 0;
 		break;
 	}
