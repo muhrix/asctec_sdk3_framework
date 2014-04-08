@@ -203,66 +203,69 @@ int AciRemote::initRosLayer() {
 }
 
 int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& pose) {
-	short uav_status;
+	short uav_status, waypt_state;
 	double roll, pitch, yaw;
 	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 	uav_status = RO_ALL_Data_.UAV_status;
+	waypt_state = wayptStatus_;
 	s_lock.unlock();
 
 	// check flight mode
-	if ((uav_status & 0x000F) == HLP_FLIGHTMODE_GPS) {
-		boost::mutex::scoped_lock lock(ctrl_mtx_);
-
-		// convert pose waypoint into HLP-format waypoint
-		WO_wpToLL_.X = static_cast<int>(pose->geo_pose.position.latitude * 1.0e7);
-		WO_wpToLL_.Y = static_cast<int>(pose->geo_pose.position.longitude * 1.0e7);
-		WO_wpToLL_.height = static_cast<int>(pose->geo_pose.position.altitude * 1.0e3);
-
-		tf::Quaternion q;
-		tf::quaternionMsgToTF(pose->geo_pose.orientation, q);
-		tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-		// yaw: 0...360000 => 1000 = 1 degree
-		WO_wpToLL_.yaw = static_cast<int>(yaw * 180000.0/M_PI);
-		// max speed in GPS mode is approx. 10 m/s
-		// see http://wiki.asctec.de/xwiki/bin/view/AscTec+UAVs/First+steps
-		WO_wpToLL_.max_speed =
-				static_cast<unsigned char>(std::min(100.0, pose->max_speed * 10.0));
-		WO_wpToLL_.time =
-				static_cast<unsigned short>(pose->timeout * 100.0);
-		WO_wpToLL_.pos_acc =
-				static_cast<unsigned short>(pose->position_accuracy * 1.0e3);
-
-		WO_wpToLL_.wp_activated = 1;
-		WO_wpToLL_.properties = WPPROP_ABSCOORDS | WPPROP_AUTOMATICGOTO
-				| WPPROP_HEIGHTENABLED | WPPROP_YAWENABLED;
-
-		WO_wpToLL_.chksum = 0xAAAA
-				+ WO_wpToLL_.yaw
-				+ WO_wpToLL_.height
-				+ WO_wpToLL_.time
-				+ WO_wpToLL_.X
-				+ WO_wpToLL_.Y
-				+ WO_wpToLL_.max_speed
-				+ WO_wpToLL_.pos_acc
-				+ WO_wpToLL_.properties
-				+ WO_wpToLL_.wp_activated;
-
-		//wpCtrlWpCmd_ = WP_CMD_SINGLE_WP;
-		wpCtrlWpCmd_ = static_cast<unsigned char>(pose->command);
-
-		WO_SDK_.ctrl_mode = 0x03;
-		WO_SDK_.ctrl_enabled = 1;
-		WO_SDK_.disable_motor_onoff_by_stick = 0;
-
-		// update control commands packet
-		aciUpdateCmdPacket(0);
-		// update waypoint command packet
-		aciUpdateCmdPacket(2);
-	}
-	else {
+	if ((uav_status & 0x000F) != HLP_FLIGHTMODE_GPS) {
 		return -1;
 	}
-	return 0;
+	// always make sure that the condition (4 at the moment) is in accordance with the
+	// state of the state machine implemented on the HLP firmware (sdk.c)
+	else if (waypt_state < 4) {
+		return waypt_state;
+	}
+	// GPS mode is enabled and state machine on HLP is in states 4 or 5
+	// hence, waypoint may be sent over to HLP (and then to LLP from within HLP)
+	boost::mutex::scoped_lock lock(ctrl_mtx_);
+
+	// convert pose waypoint into HLP-format waypoint
+	WO_wpToLL_.X = static_cast<int>(pose->geo_pose.position.latitude * 1.0e7);
+	WO_wpToLL_.Y = static_cast<int>(pose->geo_pose.position.longitude * 1.0e7);
+	WO_wpToLL_.height = static_cast<int>(pose->geo_pose.position.altitude * 1.0e3);
+
+	tf::Quaternion q;
+	tf::quaternionMsgToTF(pose->geo_pose.orientation, q);
+	tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+	// yaw: 0...360000 => 1000 = 1 degree
+	WO_wpToLL_.yaw = static_cast<int>(yaw * 180000.0/M_PI);
+	// max speed in GPS mode is approx. 10 m/s
+	// see http://wiki.asctec.de/xwiki/bin/view/AscTec+UAVs/First+steps
+	WO_wpToLL_.max_speed =
+			static_cast<unsigned char>(std::min(100.0, pose->max_speed * 10.0));
+	WO_wpToLL_.time =
+			static_cast<unsigned short>(pose->timeout * 100.0);
+	WO_wpToLL_.pos_acc =
+			static_cast<unsigned short>(pose->position_accuracy * 1.0e3);
+
+	WO_wpToLL_.wp_activated = 1;
+	WO_wpToLL_.properties = WPPROP_ABSCOORDS | WPPROP_AUTOMATICGOTO
+			| WPPROP_HEIGHTENABLED | WPPROP_YAWENABLED;
+
+	WO_wpToLL_.chksum = 0xAAAA
+			+ WO_wpToLL_.yaw
+			+ WO_wpToLL_.height
+			+ WO_wpToLL_.time
+			+ WO_wpToLL_.X
+			+ WO_wpToLL_.Y
+			+ WO_wpToLL_.max_speed
+			+ WO_wpToLL_.pos_acc
+			+ WO_wpToLL_.properties
+			+ WO_wpToLL_.wp_activated;
+
+	//wpCtrlWpCmd_ = WP_CMD_SINGLE_WP;
+	wpCtrlWpCmd_ = static_cast<unsigned char>(pose->command);
+
+	// update control commands packet
+	aciUpdateCmdPacket(0);
+	// update waypoint command packet
+	aciUpdateCmdPacket(2);
+
+	return waypt_state;
 }
 
 void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
@@ -271,6 +274,11 @@ void AciRemote::getGpsWayptNavStatus(unsigned short& waypt_nav_status,
 	waypt_nav_status = wpCtrlNavStatus_;
 	// current distance to waypoint is in dm (=10cm)
 	dist_to_goal = double(wpCtrlDistToWp_) * 0.1;
+}
+
+void AciRemote::getGpsWayptState(unsigned short& waypt_state) {
+	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+	waypt_state = wayptStatus_;
 }
 
 void AciRemote::getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult& result) {
@@ -357,17 +365,20 @@ void AciRemote::setupVarPackets() {
 	// data after sensor fusion
 	aciAddContentToVarPacket(0, 0x0303, &RO_ALL_Data_.fusion_latitude);
 	aciAddContentToVarPacket(0, 0x0304, &RO_ALL_Data_.fusion_longitude);
-	aciAddContentToVarPacket(0, 0x0305, &RO_ALL_Data_.fusion_height);
-	aciAddContentToVarPacket(0, 0x0306, &RO_ALL_Data_.fusion_dheight);
+	aciAddContentToVarPacket(0, 0x0305, &RO_ALL_Data_.fusion_dheight);
+	aciAddContentToVarPacket(0, 0x0306, &RO_ALL_Data_.fusion_height);
 	aciAddContentToVarPacket(0, 0x0307, &RO_ALL_Data_.fusion_speed_x);
 	aciAddContentToVarPacket(0, 0x0308, &RO_ALL_Data_.fusion_speed_y);
 	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
 	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
+	aciAddContentToVarPacket(0, 0x100E, &wayptStatus_);
 	// debug variables
-	aciAddContentToVarPacket(0, 0x100E, &RO_SDK_.ctrl_mode);
-	aciAddContentToVarPacket(0, 0x100F, &RO_SDK_.ctrl_enabled);
-	aciAddContentToVarPacket(0, 0x1010, &RO_SDK_.disable_motor_onoff_by_stick);
-	aciAddContentToVarPacket(0, 0x1015, &debug3_);
+	aciAddContentToVarPacket(0, 0x100F, &RO_SDK_.ctrl_mode);
+	aciAddContentToVarPacket(0, 0x1010, &RO_SDK_.ctrl_enabled);
+	aciAddContentToVarPacket(0, 0x1011, &RO_SDK_.disable_motor_onoff_by_stick);
+	//aciAddContentToVarPacket(0, 0x1015, &debug1_);
+	//aciAddContentToVarPacket(0, 0x1016, &debug2_);
+	//aciAddContentToVarPacket(0, 0x1017, &debug3_);
 
 	// packet ID 1 containing: GPS data
 	aciAddContentToVarPacket(1, 0x0106, &RO_ALL_Data_.GPS_latitude);
@@ -566,7 +577,7 @@ void AciRemote::publishImuMagData() {
 	imu_custom_msg->header.frame_id = frame_id_;
 	mag_msg->header.frame_id = frame_id_;
 	int imu_throttle = 1000 / imu_rate_;
-	static int seq = 0;
+	static int seq[] = {0, 0, 0};
 	try {
 		for (;;) {
 			boost::system_time const imu_timeout =
@@ -593,7 +604,8 @@ void AciRemote::publishImuMagData() {
 				// only publish if someone has already subscribed to topics
 				if (imu_pub_.getNumSubscribers() > 0) {
 					imu_msg->header.stamp = time_stamp;
-					imu_msg->header.seq = seq;
+					imu_msg->header.seq = seq[0];
+					seq[0]++;
 					imu_msg->linear_acceleration.x = helper::asctecAccToSI(RO_ALL_Data_.acc_x);
 					imu_msg->linear_acceleration.y = helper::asctecAccToSI(RO_ALL_Data_.acc_y);
 					imu_msg->linear_acceleration.z = helper::asctecAccToSI(RO_ALL_Data_.acc_z);
@@ -611,7 +623,8 @@ void AciRemote::publishImuMagData() {
 					double height = static_cast<double>(RO_ALL_Data_.fusion_height) * 0.001;
 					double dheight = static_cast<double>(RO_ALL_Data_.fusion_dheight) * 0.001;
 					imu_custom_msg->header.stamp = time_stamp;
-					imu_custom_msg->header.seq = seq;
+					imu_custom_msg->header.seq = seq[1];
+					seq[1]++;
 					imu_custom_msg->acceleration.x = helper::asctecAccToSI(RO_ALL_Data_.acc_x);
 					imu_custom_msg->acceleration.y = helper::asctecAccToSI(RO_ALL_Data_.acc_y);
 					imu_custom_msg->acceleration.z = helper::asctecAccToSI(RO_ALL_Data_.acc_z);
@@ -628,14 +641,14 @@ void AciRemote::publishImuMagData() {
 				}
 				if (mag_pub_.getNumSubscribers() > 0) {
 					mag_msg->header.stamp = time_stamp;
-					mag_msg->header.seq = seq;
+					mag_msg->header.seq = seq[2];
+					seq[2]++;
 					mag_msg->vector.x = static_cast<double>(RO_ALL_Data_.Hx);
 					mag_msg->vector.y = static_cast<double>(RO_ALL_Data_.Hy);
 					mag_msg->vector.z = static_cast<double>(RO_ALL_Data_.Hz);
 					mag_pub_.publish(mag_msg);
 				}
 			}
-			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
@@ -649,7 +662,7 @@ void AciRemote::publishGpsData() {
 	gps_msg->header.frame_id = frame_id_;
 	gps_custom_msg->header.frame_id = frame_id_;
 	int gps_throttle = 1000 / gps_rate_;
-	static int seq = 0;
+	static int seq[] = {0, 0};
 	try {
 		for (;;) {
 			boost::system_time const gps_timeout =
@@ -673,7 +686,8 @@ void AciRemote::publishGpsData() {
 				// only publish if someone has already subscribed to topics
 				if (gps_pub_.getNumSubscribers() > 0) {
 					gps_msg->header.stamp = time_stamp;
-					gps_msg->header.seq = seq;
+					gps_msg->header.seq = seq[0];
+					seq[0]++;
 					gps_msg->latitude = static_cast<double>(RO_ALL_Data_.GPS_latitude) * 1.0e-7;
 					gps_msg->longitude = static_cast<double>(RO_ALL_Data_.GPS_longitude) * 1.0e-7;
 					gps_msg->altitude = static_cast<double>(RO_ALL_Data_.GPS_height) * 1.0e-3;
@@ -695,7 +709,8 @@ void AciRemote::publishGpsData() {
 				}
 				if (gps_custom_pub_.getNumSubscribers() > 0) {
 					gps_custom_msg->header.stamp = time_stamp;
-					gps_custom_msg->header.seq = seq;
+					gps_custom_msg->header.seq = seq[1];
+					seq[1]++;
 					gps_custom_msg->latitude =
 							static_cast<double>(RO_ALL_Data_.fusion_latitude) * 1.0e-7;
 					gps_custom_msg->longitude =
@@ -731,7 +746,6 @@ void AciRemote::publishGpsData() {
 					gps_custom_pub_.publish(gps_custom_msg);
 				}
 			}
-			++seq;
 		}
 	}
 	catch (boost::thread_interrupted const&) {
@@ -747,7 +761,7 @@ void AciRemote::publishStatusMotorsRcData() {
 	status_msg->header.frame_id = frame_id_;
 	motor_msg->header.frame_id = frame_id_;
 	int status_throttle = 1000 / rc_status_rate_;
-	static int seq = 0;
+	static int seq[] = {0, 0, 0};
 	try {
 		for (;;) {
 			boost::system_time const status_timeout =
@@ -765,7 +779,8 @@ void AciRemote::publishStatusMotorsRcData() {
 				// only publish if someone has already subscribed to topics
 				if (rcdata_pub_.getNumSubscribers() > 0) {
 					rcdata_msg->header.stamp = time_stamp;
-					rcdata_msg->header.seq = seq;
+					rcdata_msg->header.seq = seq[0];
+					seq[0]++;
 					for (int i = 0; i < NUM_RC_CHANNELS; ++i) {
 						rcdata_msg->channel[i] = RO_ALL_Data_.channel[i];
 					}
@@ -773,7 +788,8 @@ void AciRemote::publishStatusMotorsRcData() {
 				}
 				if (status_pub_.getNumSubscribers() > 0) {
 					status_msg->header.stamp = time_stamp;
-					status_msg->header.seq = seq;
+					status_msg->header.seq = seq[1];
+					seq[1]++;
 
 					status_msg->UAV_status = RO_ALL_Data_.UAV_status;
 
@@ -810,22 +826,28 @@ void AciRemote::publishStatusMotorsRcData() {
 
 					status_msg->gps_num_satellites = RO_ALL_Data_.GPS_sat_num;
 
+					// other status variables
+					status_msg->ctrl_mode = RO_SDK_.ctrl_mode;
+					status_msg->ctrl_enabled = RO_SDK_.ctrl_enabled;
+					status_msg->disable_motor_onoff_by_stick = RO_SDK_.disable_motor_onoff_by_stick;
+					status_msg->waypt_status = wayptStatus_;
+
 					// debug variables
-					status_msg->debug1 = static_cast<unsigned short>(RO_SDK_.ctrl_mode);
-					status_msg->debug2 = static_cast<unsigned short>(RO_SDK_.ctrl_enabled);
-					status_msg->debug3 = static_cast<unsigned short>(debug3_);
+					//status_msg->debug1 = static_cast<unsigned short>(debug1_);
+					//status_msg->debug2 = static_cast<unsigned short>(debug2_);
+					//status_msg->debug3 = static_cast<unsigned short>(debug3_);
 
 					status_pub_.publish(status_msg);
 				}
 				if (motor_pub_.getNumSubscribers() > 0) {
 					motor_msg->header.stamp = time_stamp;
-					motor_msg->header.seq = seq;
+					motor_msg->header.seq = seq[2];
+					seq[2]++;
 					for (int i = 0; i < NUM_MOTORS; ++i) {
 						motor_msg->motor_speed[i] = RO_ALL_Data_.motor_rpm[i];
 					}
 					motor_pub_.publish(motor_msg);
 				}
-				++seq;
 			}
 		}
 	}

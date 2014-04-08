@@ -45,6 +45,7 @@ public:
 
 	int setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr&);
 	void getGpsWayptNavStatus(unsigned short&, double&);
+	void getGpsWayptState(unsigned short&);
 	void getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult&);
 
 protected:
@@ -150,6 +151,8 @@ private:
 	unsigned short wpCtrlNavStatus_;
 	//current distance to the current waypoint in dm (=10 cm)
 	unsigned short wpCtrlDistToWp_;
+	// current state of waypoint navigation state machine
+	unsigned short wayptStatus_;
 
 	//emergency mode variables
 	unsigned char emergencyMode_;
