@@ -12,18 +12,21 @@
 
 WaypointGPSActionServer::WaypointGPSActionServer(const std::string& name,
 		boost::shared_ptr<AciRemote::AciRemote>& aci):
-	n_("~"),
-	as_(n_, name, boost::bind(&WaypointGPSActionServer::GpsWaypointAction, this, _1), false),
-	action_name_(name),
-	waypt_max_speed_(100.0),
-	waypt_pos_acc_(3.0),
-	waypt_timeout_(10000),
-	valid_geofence_(false) {
+		n_("~"),
+		as_(n_, name, boost::bind(&WaypointGPSActionServer::GpsWaypointAction, this, _1), false),
+		action_name_(name),
+		iter_rate_(1),
+		waypt_max_speed_(100.0),
+		waypt_pos_acc_(3.0),
+		waypt_timeout_(10000),
+		valid_geofence_(false) {
 
 	sendGpsWaypointToHlp =
 			boost::bind(&AciRemote::AciRemote::setGpsWaypoint, aci, _1);
 	fetchWayptNavStatus =
 			boost::bind(&AciRemote::AciRemote::getGpsWayptNavStatus, aci, _1, _2);
+	fetchWayptState =
+			boost::bind(&AciRemote::AciRemote::getGpsWayptState, aci, _1);
 	fetchWayptResultPose =
 			boost::bind(&AciRemote::AciRemote::getGpsWayptResultPose, aci, _1);
 
@@ -49,7 +52,13 @@ WaypointGPSActionServer::~WaypointGPSActionServer() {
 //	Public member functions
 //-------------------------------------------------------
 
+// TODO: make getters and setters thread-safe
+
 // getters
+unsigned int WaypointGPSActionServer::getWaypointIterationRate() const {
+	return iter_rate_;
+}
+
 double WaypointGPSActionServer::getWaypointMaxSpeed() const {
 	return waypt_max_speed_;
 }
@@ -63,6 +72,10 @@ double WaypointGPSActionServer::getWaypointTimeout() const {
 }
 
 // setters
+void WaypointGPSActionServer::setWaypointIterationRate(const unsigned int i) {
+	iter_rate_ = i;
+}
+
 void WaypointGPSActionServer::setWaypointMaxSpeed(const double s) {
 	waypt_max_speed_ = s;
 }
@@ -84,11 +97,11 @@ void WaypointGPSActionServer::setWaypointTimeout(const double t) {
 void WaypointGPSActionServer::GpsWaypointAction(
 		const asctec_hlp_comm::WaypointGPSGoalConstPtr& goal) {
 	// helper variables
-	ros::Rate rate(1);
-	Waypoint::Action::action_t running;
+	ros::Rate rate(iter_rate_);
+	Waypoint::Action::action_t running = Waypoint::Action::NOT_READY;
 
 	double roll, pitch, yaw;
-	unsigned short nav_status;
+	unsigned short nav_status, waypt_status;
 	double dist_to_goal;
 	int flight_mode;
 
@@ -101,7 +114,16 @@ void WaypointGPSActionServer::GpsWaypointAction(
 	if (running == Waypoint::Action::VALID) {
 		// assign the newly defined GPS waypoint to ACI Engine
 		flight_mode = sendGpsWaypointToHlp(goal);
-		if (flight_mode == 0) {
+		if (flight_mode < static_cast<int>(Waypoint::State::RESET)) {
+			running = Waypoint::Action::WRONG_FLIGHT_MODE;
+		}
+		else if (flight_mode == static_cast<int>(Waypoint::State::RESET)) {
+			running = Waypoint::Action::WRONG_CTRL_MODE;
+		}
+		else if (flight_mode < static_cast<int>(Waypoint::State::READY)) {
+			running = Waypoint::Action::NOT_READY;
+		}
+		else {
 			ROS_INFO_STREAM("Flying to GPS waypoint ("
 					<< goal->geo_pose.position.latitude << ", "
 					<< goal->geo_pose.position.longitude << ", "
@@ -109,38 +131,32 @@ void WaypointGPSActionServer::GpsWaypointAction(
 					<< (yaw * 180.0 / M_PI) << ")");
 			running = Waypoint::Action::RUNNING;
 		}
-		else {
-			running = Waypoint::Action::WRONG_FLIGHT_MODE;
-		}
 	}
 	// loop reading GPS waypoint navigation status variables
 	while (running == Waypoint::Action::RUNNING) {
+		// fetch waypoint navigation status from HLP
+		fetchWayptNavStatus(nav_status, dist_to_goal);
+		fetchWayptState(waypt_status);
+		// fetch current pose as the current result (in case succeeded or aborted)
+		// notice that result_.status is also set within the function call
+		fetchWayptResultPose(result_);
+
 		// check if preempt has been requested by client (and if ROS is running ok)
 		if (as_.isPreemptRequested() || !ros::ok()) {
-			// TODO: send dummy waypoint with WP_CMD_ABORT command
-			asctec_hlp_comm::WaypointGPSGoalPtr abort_goal;
-			abort_goal->command = WP_CMD_ABORT;
-			abort_goal->geo_pose = goal->geo_pose;
-			abort_goal->max_speed = waypt_max_speed_;
-			abort_goal->position_accuracy = waypt_pos_acc_;
-			abort_goal->timeout = waypt_timeout_;
-
 			running = Waypoint::Action::PREEMPTED;
 			break;
 		}
-		// fetch waypoint navigation status from HLP
-		fetchWayptNavStatus(nav_status, dist_to_goal);
-		if (nav_status & 0x08 == static_cast<unsigned short>(Waypoint::Status::PILOT_ABORT)) {
+		else if (nav_status &  static_cast<unsigned short>(Waypoint::Status::PILOT_ABORT)) {
 			running = Waypoint::Action::ABORTED;
 			break;
 		}
-		else if ((nav_status & 0x01 ==
-						static_cast<unsigned short>(Waypoint::Status::REACHED_POS))
-				|| (nav_status & 0x02 ==
-						static_cast<unsigned short>(Waypoint::Status::REACHED_POS))) {
-			// set result
-			fetchWayptResultPose(result_);
-			result_.status = nav_status;
+		else if (waypt_status == static_cast<unsigned short>(Waypoint::State::RESET)) {
+			running = Waypoint::Action::ABORTED;
+			break;
+		}
+		else if ((nav_status & static_cast<unsigned short>(Waypoint::Status::REACHED_POS))
+				||
+				(nav_status & static_cast<unsigned short>(Waypoint::Status::REACHED_POS_TIME))) {
 			running = Waypoint::Action::SUCCEEDED;
 			break;
 		}
@@ -150,23 +166,31 @@ void WaypointGPSActionServer::GpsWaypointAction(
 			feedback_.status = nav_status;
 			as_.publishFeedback(feedback_);
 		}
-
 		rate.sleep();
 	}
-	if (running == Waypoint::Action::OUT_OF_GEOFENCE) {
+
+	if (running == Waypoint::Action::NOT_READY) {
+		ROS_INFO_STREAM(action_name_ << ": Aborted (quadrotor is not ready for waypoint navigation)");
+		as_.setAborted();
+	}
+	else if (running == Waypoint::Action::OUT_OF_GEOFENCE) {
 		ROS_INFO_STREAM(action_name_ << ": Invalid waypoint (out of geofence)");
 		as_.setAborted();
 	}
 	else if (running == Waypoint::Action::PREEMPTED) {
 		ROS_INFO_STREAM(action_name_ << ": Preempted by action client");
-		as_.setPreempted();
+		as_.setPreempted(result_);
 	}
 	else if (running == Waypoint::Action::ABORTED) {
 		ROS_INFO_STREAM(action_name_ << ": Aborted by HLP/safety pilot");
-		as_.setAborted();
+		as_.setAborted(result_);
 	}
 	else if (running == Waypoint::Action::WRONG_FLIGHT_MODE) {
 		ROS_INFO_STREAM(action_name_ << ": Aborted (flight mode is not GPS)");
+		as_.setAborted();
+	}
+	else if (running == Waypoint::Action::WRONG_CTRL_MODE) {
+		ROS_INFO_STREAM(action_name_ << ": Aborted (control mode is not correctly set)");
 		as_.setAborted();
 	}
 	else if (running == Waypoint::Action::SUCCEEDED) {

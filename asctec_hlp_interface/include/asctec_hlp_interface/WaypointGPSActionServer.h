@@ -45,10 +45,18 @@ typedef boost::geometry::model::polygon<spherical_point_type> polygon_type;
 namespace Waypoint {
 	namespace Action {
 		typedef enum {SUCCEEDED = 0, RUNNING, PREEMPTED, ABORTED,
-			OUT_OF_GEOFENCE, VALID, WRONG_FLIGHT_MODE} action_t;
+			OUT_OF_GEOFENCE, VALID, WRONG_FLIGHT_MODE, WRONG_CTRL_MODE, NOT_READY} action_t;
 	}
+	// the values attributed to the enum statuses are in accordance with HLP's sdk.h
 	namespace Status {
-		typedef enum {REACHED_POS = 0, REACHED_POS_TIME, WITHIN_20M, PILOT_ABORT } status_t;
+		typedef enum {REACHED_POS = 0x01, REACHED_POS_TIME = 0x02,
+			WITHIN_20M = 0x04, PILOT_ABORT = 0x08} status_t;
+	}
+	// the states below refer to the state machine implemented on the HLP
+	// and must obviously be in sync (see sdk.c)
+	namespace State {
+		typedef enum {RESET = 0, LOCK1 = 1, LOCK2 = 2, LOCK3 = 3,
+			READY = 4, LLP_CHECKING = 5} state_t;
 	}
 }
 
@@ -58,11 +66,13 @@ public:
 	~WaypointGPSActionServer();
 
 	// getters
+	unsigned int getWaypointIterationRate() const;
 	double getWaypointMaxSpeed() const;
 	double getWaypointPositionAccuracy() const;
 	double getWaypointTimeout() const;
 
 	// setters
+	void setWaypointIterationRate(const unsigned int);
 	void setWaypointMaxSpeed(const double);
 	void setWaypointPositionAccuracy(const double);
 	void setWaypointTimeout(const double);
@@ -79,6 +89,7 @@ private:
 	asctec_hlp_comm::WaypointGPSFeedback feedback_;
 	asctec_hlp_comm::WaypointGPSResult result_;
 
+	int iter_rate_;
 	double waypt_max_speed_;
 	double waypt_pos_acc_;
 	double waypt_timeout_;
@@ -98,6 +109,7 @@ private:
 
 	boost::function<int (const asctec_hlp_comm::WaypointGPSGoalConstPtr&)>
 		sendGpsWaypointToHlp;
+	boost::function<void (unsigned short&)> fetchWayptState;
 	boost::function<void (unsigned short&, double&)> fetchWayptNavStatus;
 	boost::function<void (asctec_hlp_comm::WaypointGPSResult&)> fetchWayptResultPose;
 };
