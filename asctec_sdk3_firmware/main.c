@@ -445,14 +445,16 @@ void ACISDK(void)
 
 	aciPublishVariable(&wpCtrlNavStatus, VARTYPE_UINT16, 0x100C, "Wp Nav Status", "waypoint navigation status flag", "see sdk.h");
 	aciPublishVariable(&wpCtrlDistToWp, VARTYPE_UINT16, 0x100D, "dist do wp", "current distance to current waypoint", "dm (=10 cm)");
+	aciPublishVariable(&wayptStatus, VARTYPE_UINT16, 0x101E, "Wp Nav State Machine", "current state of waypoint navigation state machine", "see sdk.c");
 
-	aciPublishVariable(&WO_SDK.ctrl_mode, VARTYPE_UINT8, 0x100E, "test", "test", "test");
-	aciPublishVariable(&WO_SDK.ctrl_enabled, VARTYPE_UINT8, 0x100F, "test", "test", "test");
-	aciPublishVariable(&WO_SDK.disable_motor_onoff_by_stick, VARTYPE_UINT8, 0x1010, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.ctrl_mode, VARTYPE_UINT8, 0x100F, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.ctrl_enabled, VARTYPE_UINT8, 0x1010, "test", "test", "test");
+	aciPublishVariable(&WO_SDK.disable_motor_onoff_by_stick, VARTYPE_UINT8, 0x1011, "test", "test", "test");
 
 	// Testing/development variables
-	aciPublishCommand(&doBeep, VARTYPE_UINT16, 0x1014, "beep", "pelican should beep when receiving this command", "1 = must beep");
-	aciPublishVariable(&wayptStatus, VARTYPE_UINT16, 0x1015, "test", "test", "test");
+	// remember that mav_hlp_status.msg has 3 debug variables
+	// and AciRemote may receive and publish those debug variables, though code must be uncomented
+	//aciPublishCommand(&doBeep, VARTYPE_UINT16, 0x1015, "beep", "pelican should beep when receiving this command", "1 = must beep");
 
 #else
 	// Matlab parameters
