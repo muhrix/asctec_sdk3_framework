@@ -12,6 +12,11 @@ bool        serial_interface_active
 
 string      motor_status
 
+uint8       ctrl_mode
+uint8       ctrl_enabled
+uint8       disable_motor_onoff_by_stick
+uint16      waypt_status
+
 uint16      debug1
 uint16      debug2
 uint16      debug3
