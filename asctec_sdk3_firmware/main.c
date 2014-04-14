@@ -53,10 +53,6 @@ DAMAGE.
 #include "asctecCommIntfOnboard.h"
 #include "lpc_aci_eeprom.h"
 
-#ifdef MATLAB
-#include "..\custom_mdl\onboard_matlab_ert_rtw\onboard_matlab.h"
-#endif
-
 /* *********************************************************
                Function declarations
   ********************************************************* */
@@ -135,10 +131,6 @@ int	main (void) {
   //...
 
   PTU_init();	//initialize camera PanTiltUnit
-#ifdef MATLAB
-  //ee_read((unsigned int*)&matlab_params); //read params from eeprom
-  onboard_matlab_initialize(); //initialize matlab code
-#endif
 
   while(1)
   {
@@ -265,22 +257,6 @@ void mainloop(void) //mainloop is triggered at 1 kHz
 	  	}
 	}
 
-#ifdef MATLAB
-	//re-trigger UART-transmission if it was paused by modem CTS pin
-	if(trigger_transmission)
-	{
-		if(!(IOPIN0&(1<<CTS_RADIO)))
-	  	{
-	  		trigger_transmission=0;
-		    if(UART_Matlab_fifo(RBREAD, &t, 1))
-		    {
-		      transmission_running=1;
-		      UARTWriteChar(t);
-		    }
-	  	}
-	}
-#endif
-
 	//send data packet as an example how to use HL_serial_0 (please refer to uart.c for details)
 /*
     if(uart_cnt++==ControllerCyclesPerSecond/DataOutputsPerSecond)
@@ -333,7 +309,7 @@ void ACISDK(void)
 {
 	aciInit(1000);
 	lpc_aci_init();
-#ifndef MATLAB
+
 	aciSetStartTxCallback(UARTWriteChar);
 	// Variables
 	aciPublishVariable(&RO_ALL_Data.UAV_status, VARTYPE_INT16, 0x0001, "UAV_status", "UAV status information","See in wiki");
@@ -455,14 +431,6 @@ void ACISDK(void)
 	// remember that mav_hlp_status.msg has 3 debug variables
 	// and AciRemote may receive and publish those debug variables, though code must be uncomented
 	//aciPublishCommand(&doBeep, VARTYPE_UINT16, 0x1015, "beep", "pelican should beep when receiving this command", "1 = must beep");
-
-#else
-	// Matlab parameters
-
-	aciPublishParameter(&matlab_params.p01,VARTYPE_STRUCT_WITH_SIZE(60),0x0F00,"Matlab Parameter Set 1","Matlab paramters 1..15","");
-	aciPublishParameter(&matlab_params.p16,VARTYPE_STRUCT_WITH_SIZE(60),0x0F01,"Matlab Parameter Set 2","Matlab paramters 15..30","");
-	aciPublishParameter(&matlab_params.p30,VARTYPE_STRUCT_WITH_SIZE(48),0x0F02,"Matlab Parameter Set 3","Matlab paramters 30..40 and CRC","");
-#endif
 
 	//get initial values from flash for all parameters
 	lpc_aci_ReadParafromFlash();
