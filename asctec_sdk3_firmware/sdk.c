@@ -295,11 +295,12 @@ void handleWayptPacket(void) {
 				// send waypoint to LLP
 				// wpCtrlAckTrigger is set to 1 when the LLP accepts the waypoint
 				wpCtrlAckTrigger = 0;
-				// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
+
 				// TODO: remote device currently sets this value and there is no need to change it
 				// revise this setting!!!
 				// 3 Apr 2014: I believe the remote should set this value, so not changing and...
 				// hence this part will be deleted after field tests
+				// wpCtrlWpCmd sets the type of waypoint command sent to the LLP
 				//wpCtrlWpCmd = WP_CMD_SINGLE_WP;
 
 				// wpCtrlWpCmdUpdated must be set to 1 in order for the waypoint to be sent
