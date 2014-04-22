@@ -17,8 +17,11 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <run_depend>asctec_hlp_interface</run_depend>
+  <run_depend>asctec_hlp_comm</run_depend>
+  <run_depend>asctec_hlp_gps</run_depend>
   <run_depend>aci_remote_v100</run_depend>
   <run_depend>aci_remote_tutorials</run_depend>
+  <run_depend>asctec_pelican_description</run_depend>
 
   <export>
     <metapackage/>
