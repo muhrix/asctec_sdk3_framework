@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="asctec_hlp_interface" type="hlp_node" name="hlp_node" output="screen" respawn="false"/>
+</launch>
