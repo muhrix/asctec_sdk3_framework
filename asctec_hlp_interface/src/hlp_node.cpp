@@ -28,7 +28,8 @@ int main(int argc, char* argv[]) {
 	ros::NodeHandle priv_nh("~");
 
 	boost::shared_ptr<AciRemote::AciRemote> hlp =
-			boost::make_shared<AciRemote::AciRemote>(boost::ref(priv_nh));
+			//boost::make_shared<AciRemote::AciRemote>(boost::ref(priv_nh));
+			boost::make_shared<AciRemote::AciRemote>(boost::ref(nh));
 
 	if (hlp->init() < 0) {
 		return EXIT_FAILURE;
@@ -39,7 +40,7 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	WaypointGPSActionServer hlp_waypt("pelican_nav", hlp);
+	WaypointGPSActionServer hlp_waypt("gps_waypt_nav", hlp);
 
 	ros::spin();
 
