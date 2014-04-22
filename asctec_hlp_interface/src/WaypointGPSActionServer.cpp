@@ -12,7 +12,8 @@
 
 WaypointGPSActionServer::WaypointGPSActionServer(const std::string& name,
 		boost::shared_ptr<AciRemote::AciRemote>& aci):
-		n_("~"),
+		//n_("~"),
+		n_(),
 		as_(n_, name, boost::bind(&WaypointGPSActionServer::GpsWaypointAction, this, _1), false),
 		action_name_(name),
 		iter_rate_(1),
