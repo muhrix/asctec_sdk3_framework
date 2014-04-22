@@ -2,6 +2,8 @@
 <launch>
   <arg name="robot_name" default="pelican"/>
 
+  <!-- TODO should investigate how to publish static tfs -->
+
   <!-- Send Pelican quadrotor URDF/XACRO to param server -->
   <param name="robot_description" 
          command="$(find xacro)/xacro.py 
