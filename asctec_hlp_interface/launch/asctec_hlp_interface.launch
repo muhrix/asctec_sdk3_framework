@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <launch>
+  <!-- Variable names -->
+  <arg name="hlp_node_name" default="pelican" />
+  
   <!-- Load HLP interface node  -->
-  <!-- <node pkg="asctec_hlp_interface" type="hlp_node" name="hlp_node" output="screen" respawn="false"/> -->
-  <node pkg="asctec_hlp_interface" type="hlp_node" name="pelican" output="screen" respawn="false"/>
+  <node pkg="asctec_hlp_interface" type="hlp_node" name="$(arg hlp_node_name)" output="screen" respawn="false"/>
 </launch>
