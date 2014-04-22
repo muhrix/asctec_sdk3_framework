@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<robot name="Asctec Pelican">
+  
+################################################################################
+# LINKS                                                                        #
+################################################################################
+
+  ##### base_link ##############################################################
+
+  <link name="base_link">
+    <visual>
+      <!-- <origin xyz="0.0 0.0 0.0" rpy="1.57 0.0 3.1415"/> -->
+      <origin xyz="0.0 0.0 0.0" rpy="1.57 0.0 0.7854"/>
+      <geometry>
+        <mesh filename="package://asctec_pelican_description/meshes/pelican.stl" 
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.4 0.4 0.5 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+  ##### base_footprint #########################################################
+
+  <link name="base_footprint"/>
+
+################################################################################
+# JOINTS                                                                       #
+################################################################################
+
+  ##### base_footprint #########################################################
+
+  <joint name="base_link_to_base_footprint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+    <origin xyz="0.00 0.00 -0.085" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+</robot>
+
+
