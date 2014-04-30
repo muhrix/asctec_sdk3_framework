@@ -371,7 +371,13 @@ void AciRemote::setupVarPackets() {
 	aciAddContentToVarPacket(0, 0x0308, &RO_ALL_Data_.fusion_speed_y);
 	aciAddContentToVarPacket(0, 0x100C, &wpCtrlNavStatus_);
 	aciAddContentToVarPacket(0, 0x100D, &wpCtrlDistToWp_);
-	aciAddContentToVarPacket(0, 0x100E, &wayptStatus_);
+	// TODO the line below sets up the address I should be using, but
+	// I found a typo in the firmware (main.c) which I do not have time
+	// change at the moment (need to re-compile and re-flash the firmware to the HLP)
+	//aciAddContentToVarPacket(0, 0x100E, &wayptStatus_);
+	// TODO the line below is currently setting the address according to main.c
+	// as of 30 Apr 2014
+	aciAddContentToVarPacket(0, 0x101E, &wayptStatus_);
 	// debug variables
 	aciAddContentToVarPacket(0, 0x100F, &RO_SDK_.ctrl_mode);
 	aciAddContentToVarPacket(0, 0x1010, &RO_SDK_.ctrl_enabled);
