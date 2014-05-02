@@ -62,7 +62,7 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	n_.param("rcdata_topic", rcdata_topic_, std::string("rcdata"));
 	n_.param("status_topic", status_topic_, std::string("status"));
 	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
-	n_.param("ctrl_topic", ctrl_topic_, std::string("uav_control"));
+	n_.param("cmd_vel_topic", ctrl_topic_, std::string("cmd_vel"));
 	n_.param("ctrl_service", ctrl_srv_name_, std::string("set_uav_control"));
 
 
@@ -862,9 +862,104 @@ void AciRemote::publishStatusMotorsRcData() {
 	}
 }
 
+
+
+/*
+ *
+ * Flight modes are: Manual, Height and GPS (control loops running on the LLP)
+ * Depending on the selected flight mode, the sticks have different effects on the UAV
+ * (e.g., climb/sink rate if height control is enabled and absolute thrust if height
+ * control is disabled)
+ * In all flight modes, a heading hold algorithm is activated, which uses (yaw - gyro)
+ *
+ * Quick description:
+ * Manual mode (WARNING: for experienced pilots only):
+ * - only attitude control is active
+ * - keeps horizontal attitude and orientation
+ * - 50% thrust may cause the UAV to sink or climb, depending on payload
+ * - does not compensate for the wind (will drift with wind)
+ * - position of thrust stick corresponds to thrust rate: centred stick = 50% thrust,
+ * 		full stick up = 100% thrust, and full stick down = 0% thrust
+ * - position of yaw stick corresponds to yaw rate: centred stick = 0 degrees/s,
+ * 		full stick command = approx. 200 degrees/s
+ * - position of pitch stick corresponds to pitch angle: centred stick = 0 degrees,
+ * 		full stick command = approx. 52 degrees
+ * - position of roll stick corresponds to roll angle: centred stick = 0 degrees,
+ * 		full stick command = approx. 52 degrees
+ * - maximum attitude angle is 52 degrees
+ * - minimum thrust of 0% means the UAV will fall like a stone
+ * - maximum thrust of 100% means the UAV will climb with 4 to 5 m/s, depending on payload
+ *
+ * Height mode:
+ * - attitude and height control are active
+ * - keeps horizontal attitude, height and orientation
+ * - does not compensate for the wind (will drift with wind)
+ * - position of thrust stick corresponds to a climb/sink rate: centred stick = 0 m/s,
+ * 		full stick command = approx. 2 m/s
+ * - position of yaw stick corresponds to yaw rate: centred stick = 0 degrees/s,
+ * 		full stick command = approx. 200 degrees/s
+ * - position of pitch stick corresponds to pitch angle: centred stick = 0 degrees,
+ * 		full stick command = approx. 52 degrees
+ * - position of roll stick corresponds to roll angle: centred stick = 0 degrees,
+ * 		full stick command = approx. 52 degress
+ * - maximum attitude angle limited to 52 degrees
+ * - 52 degrees corresponds to a relative velocity of approx. 15 m/s
+ * - therefore, maximum absolute speed = relative speed + wind speed
+ *
+ * GPS mode:
+ * - all control algorithms (attitude, height, position) are active
+ * - if there is no valid GPS lock, falls back to Height mode even if GPS mode selected
+ * - both control sticks centred: keeps its GPS position, height and orientation
+ * - hence, compensates for winds up to 10 m/s
+ * - position of thrust stick corresponds to climb/sink rate: centred stick = 0 m/s,
+ * 		full stick command = approx. 2 m/s
+ * - position of yaw stick corresponds to yaw rate: centred stick = 0 degrees/s,
+ * 		full stick command = 200 degrees/s
+ * - position of pitch stick corresponds to forward velocity: centred stick = 0 m/s,
+ * 		full stick command = approx. 3 m/s ground speed
+ * - position of roll stick corresponds to sideward velocity: centred stick = 0 m/s,
+ * 		full stick command = approx. 3 m/s ground speed
+ * - wind is also compensated whilst commanding horizontal velocity
+ * - thus, regardless of wind direction, absolute speed will be the same
+ * - WARNING: do not use GPS mode if wind speed exceeds 10 m/s, as UAV will not be
+ * 		able to compensate for such strong wind anymore
+ * - the limit of 10 m/s is a result of maximum attitude angle of approx. 23 degrees
+ * 		implemented to avoid a too steep angle of the GPS module, which increases the
+ * 		risk of losing sight of surrounding satellites, causing the UAV to swithc back
+ * 		to Height mode
+ * - WARNING: never try to fly in GPS indoors (obviously!)
+ *
+ * For more information regarding the flight modes, see:
+ * http://wiki.asctec.de/display/AR/Get+Ready+to+Fly
+ *
+ *
+ *
+ * Control modes are (refer to AsctecSDK3.h in this package, or sdk.h of HLP firmware):
+ * - 0x00: Individual motor control -- commands for each individual motor
+ * 		(thus no attitude control active at all)
+ * - 0x01: Direct motor control using standard output mapping: commands interpreted as
+ * 		pitch, roll, yaw and thrust inputs for all motors; no attitude control active
+ * - 0x02: Attitude and thrust control: commands interpreted as remote control stick inputs
+ * 		and hence used as inputs for standard attitude controller running on the LLP
+ * 		(i.e., desired angle pitch, desired angle roll, desired yaw rate and thrust)
+ * - 0x03: GPS Waypoint navigation (position, height, heading, etc.)
+ *
+ * For more information regarding the control modes, see:
+ * http://wiki.asctec.de/display/AR/SDK+Manual
+ *
+ *
+ *
+ * Emergency modes:
+ * For more information regarding the emergency modes, see:
+ * http://wiki.asctec.de/display/AR/Emergency+Mode
+ *
+ */
+
 void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
 	// acquire shared lock in order to read from RO_ALL_Data_
 	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+
+
 
 //	if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
 //		ROS_WARN_STREAM("UAV in GPS mode; ignoring velocity commands");
