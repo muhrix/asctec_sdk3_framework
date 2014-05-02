@@ -51,6 +51,7 @@ struct WO_SDK_STRUCT {
 
 
 
+// --- constants used as masks to fetch the UAV status (UAV_status variable) -----------------------------------------------------------------------------------------
 #define	 ATTITUDE_CONTROL					0x01
 #define	 HEIGHT_CONTROL						0x02
 #define	 POSITION_CONTROL					0x04
@@ -69,6 +70,8 @@ struct WO_SDK_STRUCT {
 #define HLP_FLIGHTMODE_ATTITUDE				0x01
 #define HLP_FLIGHTMODE_HEIGHT				0x03
 #define HLP_FLIGHTMODE_GPS					0x07
+
+
 
 //--- read sensor data -----------------------------------------------------------------------------------------------------------------------------------------------
 struct RO_ALL_DATA {
