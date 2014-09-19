@@ -1042,6 +1042,7 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 	WO_SDK_.ctrl_enabled = req.ctrl_enabled;
 	WO_SDK_.disable_motor_onoff_by_stick = req.disable_onoff_stick;
 
+    /*
 	if (req.motor1 > 0)
 		WO_DIMC_.motor[0] = 10;
 	else
@@ -1061,6 +1062,7 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 		WO_DIMC_.motor[3] = 10;
 	else
         WO_DIMC_.motor[3] = 0;
+    */
 
 	aciUpdateCmdPacket(0);
 
