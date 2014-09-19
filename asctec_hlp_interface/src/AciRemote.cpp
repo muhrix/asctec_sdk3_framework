@@ -956,21 +956,21 @@ void AciRemote::publishStatusMotorsRcData() {
  */
 
 void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
-	// acquire shared lock in order to read from RO_ALL_Data_
-	boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
+    // acquire (upgradable) shared lock in order to read from RO_ALL_Data_
+    boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
 
+    if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
+        ROS_WARN_STREAM("UAV in GPS mode; ignoring velocity commands");
+    }
+    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
+        ROS_WARN_STREAM("Controlling velocity in Z-axis in manual mode is hard; ignoring");
+    }
+    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
+        ROS_WARN_STREAM("UAV in Height mode; ignoring velocity commands");
+    }
 
-
-//	if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
-//		ROS_WARN_STREAM("UAV in GPS mode; ignoring velocity commands");
-//		return;
-//	}
-//	else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
-//		ROS_WARN_STREAM("Controlling velocity in Z-axis in manual mode is hard; ignoring");
-//	}
-//	else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
-//
-//	}
+    // acquire unique lock in order to write to WO_CTRL_INPUT
+    //boost::upgrade_to_unique_lock<boost::shared_mutex> un_lock(up_lock);
 }
 
 bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
