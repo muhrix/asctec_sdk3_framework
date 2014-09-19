@@ -39,31 +39,31 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
 	aci_obj_ptr = static_cast<void*>(this);
 
 	// fetch values from ROS parameter server
-	n_.param("serial_port", port_name_, std::string("/dev/ttyUSB0"));
-	n_.param("baudrate", baud_rate_, 230400);
-	n_.param("frame_id", frame_id_, std::string(n_.getNamespace() + "_base_link"));
+    n_.param<std::string>("serial_port", port_name_, std::string("/dev/ttyUSB0"));
+    n_.param<int>("baudrate", baud_rate_, 230400);
+    n_.param<std::string>("frame_id", frame_id_, std::string(n_.getNamespace() + "_base_link"));
 	// parameters below will (that is, should) be moving to dynamic reconfigure in a later release
-	n_.param("packet_rate_imu_mag", imu_rate_, 50);
-	n_.param("packet_rate_gps", gps_rate_, 5);
-	n_.param("packet_rate_rcdata_status_motors", rc_status_rate_, 10);
-	n_.param("aci_engine_throttle", aci_rate_, 100);
-	n_.param("aci_heartbeat", aci_heartbeat_, 10);
-	n_.param("stddev_angular_velocity", ang_vel_variance_, 0.013); // taken from experiments
-	n_.param("stddev_linear_acceleration", lin_acc_variance_, 0.083); // taken from experiments
+    n_.param<int>("packet_rate_imu_mag", imu_rate_, 50);
+    n_.param<int>("packet_rate_gps", gps_rate_, 5);
+    n_.param<int>("packet_rate_rcdata_status_motors", rc_status_rate_, 10);
+    n_.param<int>("aci_engine_throttle", aci_rate_, 100);
+    n_.param<int>("aci_heartbeat", aci_heartbeat_, 10);
+    n_.param<double>("stddev_angular_velocity", ang_vel_variance_, 0.013); // taken from experiments
+    n_.param<double>("stddev_linear_acceleration", lin_acc_variance_, 0.083); // taken from experiments
 	ang_vel_variance_ *= ang_vel_variance_;
 	lin_acc_variance_ *= lin_acc_variance_;
 
 	// fetch topic names from ROS parameter server
-	n_.param("imu_topic", imu_topic_, std::string("imu"));
-	n_.param("imu_custom_topic", imu_custom_topic_, std::string("imu_custom"));
-	n_.param("mag_topic", mag_topic_, std::string("mag"));
-	n_.param("gps_topic", gps_topic_, std::string("gps"));
-	n_.param("gps_custom_topic", gps_custom_topic_, std::string("gps_custom"));
-	n_.param("rcdata_topic", rcdata_topic_, std::string("rcdata"));
-	n_.param("status_topic", status_topic_, std::string("status"));
-	n_.param("motor_speed_topic", motor_topic_, std::string("motor_speed"));
-	n_.param("cmd_vel_topic", ctrl_topic_, std::string("cmd_vel"));
-	n_.param("ctrl_service", ctrl_srv_name_, std::string("set_uav_control"));
+    n_.param<std::string>("imu_topic", imu_topic_, std::string("imu"));
+    n_.param<std::string>("imu_custom_topic", imu_custom_topic_, std::string("imu_custom"));
+    n_.param<std::string>("mag_topic", mag_topic_, std::string("mag"));
+    n_.param<std::string>("gps_topic", gps_topic_, std::string("gps"));
+    n_.param<std::string>("gps_custom_topic", gps_custom_topic_, std::string("gps_custom"));
+    n_.param<std::string>("rcdata_topic", rcdata_topic_, std::string("rcdata"));
+    n_.param<std::string>("status_topic", status_topic_, std::string("status"));
+    n_.param<std::string>("motor_speed_topic", motor_topic_, std::string("motor_speed"));
+    n_.param<std::string>("cmd_vel_topic", ctrl_topic_, std::string("cmd_vel"));
+    n_.param<std::string>("ctrl_service", ctrl_srv_name_, std::string("set_uav_control"));
 
 
 	// TODO: Initialise Asctec SDK3 Command data structures before enabling RC serial switch
