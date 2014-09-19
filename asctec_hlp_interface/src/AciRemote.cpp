@@ -261,7 +261,7 @@ int AciRemote::setGpsWaypoint(const asctec_hlp_comm::WaypointGPSGoalConstPtr& po
 	wpCtrlWpCmd_ = static_cast<unsigned char>(pose->command);
 
 	// update control commands packet
-	aciUpdateCmdPacket(0);
+    aciUpdateCmdPacket(0);
 	// update waypoint command packet
 	aciUpdateCmdPacket(2);
 
@@ -956,21 +956,57 @@ void AciRemote::publishStatusMotorsRcData() {
  */
 
 void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
-    // acquire (upgradable) shared lock in order to read from RO_ALL_Data_
-    boost::upgrade_lock<boost::shared_mutex> up_lock(shared_mtx_);
+    // acquire shared lock in order to read from RO_ALL_Data_
+    boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
 
     if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
-        ROS_WARN_STREAM("UAV in GPS mode; ignoring velocity commands");
-    }
-    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
-        ROS_WARN_STREAM("Controlling velocity in Z-axis in manual mode is hard; ignoring");
+        ROS_WARN_STREAM("UAV in GPS mode");
     }
     else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
-        ROS_WARN_STREAM("UAV in Height mode; ignoring velocity commands");
+        ROS_WARN_STREAM("UAV in Height mode");
+    }
+    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
+        ROS_ERROR_STREAM("UAV in manual mode: IGNORING for safety reasons");
+        return;
+    }
+    else {
+        ROS_ERROR_STREAM("UAV in unknown control mode. How is this possible?");
     }
 
-    // acquire unique lock in order to write to WO_CTRL_INPUT
-    //boost::upgrade_to_unique_lock<boost::shared_mutex> un_lock(up_lock);
+    // thrust range = [0, 4095]
+    // max(thrust) = 2 m/s (climb/sink rate)
+    // min(thrust) = 0 m/s
+    WO_CTRL_.thrust = std::min<short>(4095, short(cmd->linear.z * (4095.0/2.0)));
+
+    // yaw range = [-2047, 2047]
+    // max(yaw) = 200 degrees/s
+    // min(yaw) = -200 degrees/s
+    WO_CTRL_.yaw = cmd->angular.z;
+
+    // pitch range = [-2047, 2047]
+    // max(pitch) = 3 m/s
+    // min(pitch) = -3 m/s
+    WO_CTRL_.pitch = short(cmd->linear.x * (2047.0/3.0));
+    if (cmd->linear.x > 0.0) {
+        WO_CTRL_.pitch = std::min<short>(2047, WO_CTRL_.pitch);
+    }
+    else {
+        WO_CTRL_.pitch = std::max<short>(-2047, WO_CTRL_.pitch);
+    }
+
+    // roll range = [-2047, 2047]
+    // max(roll) = 3 m/s
+    // min(roll) = -3 m/s
+    WO_CTRL_.roll = short(cmd->linear.y * (2047.0/3.0));
+    if (cmd->linear.y > 0.0) {
+        WO_CTRL_.roll = std::min<short>(2047, WO_CTRL_.roll);
+    }
+    else {
+        WO_CTRL_.roll = std::max<short>(-2047, WO_CTRL_.roll);
+    }
+
+    // update CTRL command packet
+    aciUpdateCmdPacket(1);
 }
 
 bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
@@ -1024,7 +1060,7 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 	if (req.motor4 > 0)
 		WO_DIMC_.motor[3] = 10;
 	else
-		WO_DIMC_.motor[3] = 0;
+        WO_DIMC_.motor[3] = 0;
 
 	aciUpdateCmdPacket(0);
 
