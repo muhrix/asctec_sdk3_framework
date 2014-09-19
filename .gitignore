@@ -11,3 +11,4 @@
 *.sym
 *.elf
 *.exe
+*.user
