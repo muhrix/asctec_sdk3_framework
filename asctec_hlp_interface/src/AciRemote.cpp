@@ -973,6 +973,19 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
         ROS_ERROR_STREAM("UAV in unknown control mode. How is this possible?");
     }
 
+    /*control byte:
+    bit 0: pitch control enabled
+    bit 1: roll control enabled
+    bit 2: yaw control enabled
+    bit 3: thrust control enabled
+    bit 4: height control enabled
+    bit 5: GPS position control enabled
+    */
+    // From my understanding, whichever bit set will be controlled by the HLP
+    // and whichever bit not set will still be controlled by the remote control
+    // (i.e., the RC sticks)
+    WO_CTRL_.ctrl = 0x04;
+
     // thrust range = [0, 4095]
     // max(thrust) = 2 m/s (climb/sink rate)
     // min(thrust) = 0 m/s
