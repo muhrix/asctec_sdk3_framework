@@ -26,7 +26,6 @@
 #include "asctec_hlp_comm/GpsCustom.h"
 
 #include <sstream>
-#include <boost/lexical_cast.hpp>
 
 namespace AciRemote {
 
@@ -166,7 +165,7 @@ int AciRemote::initRosLayer() {
 
             // only advertise topic if parameter is set to true
             if (externalise_state_) {
-                extern_pub_ = n_.advertise<std_msgs::String>(extern_topic_, 1);
+                extern_pub_ = n_.advertise<std_msgs::String>(extern_topic_, 10);
             }
 
 			ctrl_sub_ = n_.subscribe(ctrl_topic_, 1, &AciRemote::ctrlTopicCallback, this);
@@ -1133,8 +1132,22 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
     if (externalise_state_) {
         std_msgs::String str;
         std::ostringstream oss;
-        oss << "Control mode set to "
-                << boost::lexical_cast<std::string>(req.ctrl_mode);
+        oss << "Control mode set to ";
+        if (req.ctrl_mode == 0x00) {
+            oss << "zero";
+        }
+        else if (req.ctrl_mode == 0x01) {
+            oss << "one";
+        }
+        else if (req.ctrl_mode == 0x02) {
+            oss << "two";
+        }
+        else if (req.ctrl_mode == 0x03) {
+            oss << "three";
+        }
+        else {
+            oss << "invalid";
+        }
         str.data = oss.str();
         extern_pub_.publish(str);
 
@@ -1148,11 +1161,11 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
         }
 
         if (req.disable_onoff_stick == 0x01) {
-            str.data = std::string("On off via stick is disabled");
+            str.data = std::string("On off via stick is enabled");
             extern_pub_.publish(str);
         }
         else {
-            str.data = std::string("On off via stick is enabled");
+            str.data = std::string("On off via stick is disabled");
             extern_pub_.publish(str);
         }
     }
