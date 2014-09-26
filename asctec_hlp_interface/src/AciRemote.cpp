@@ -968,6 +968,7 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // acquire shared lock in order to read from RO_ALL_Data_
     boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
     std_msgs::String str;
+    /*
     if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
         ROS_WARN_STREAM("UAV in GPS mode");
         if (externalise_state_) {
@@ -982,25 +983,14 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
             extern_pub_.publish(str);
         }
     }
-    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
+    else */
+    if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
         ROS_ERROR_STREAM("UAV in manual mode: IGNORING for safety reasons");
-        if (externalise_state_) {
-            str.data = std::string("UAV is in manual mode");
-            extern_pub_.publish(str);
-            str.data = std::string("Ignoring commands for safety reasons");
-            extern_pub_.publish(str);
-        }
         return;
     }
     else {
         ROS_ERROR_STREAM("UAV in unknown control mode. How is this possible?");
         return;
-        if (externalise_state_) {
-            str.data = std::string("UAV is in unknown control mode");
-            extern_pub_.publish(str);
-            str.data = std::string("How is this possible? Stop at once and revise source code");
-            extern_pub_.publish(str);
-        }
     }
 
     /*control byte:
@@ -1016,14 +1006,6 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // and whichever bit not set will still be controlled by the remote control
     // (i.e., the RC sticks)
     WO_CTRL_.ctrl = 0x3F; // 0011 1111 = 3F
-
-    if (externalise_state_) {
-        std::ostringstream oss;
-        oss << "The following commands will be controlled by the HLP. "
-            << "Pithc, roll, yaw, thrust, height and position.";
-        str.data = oss.str();
-        extern_pub_.publish(str);
-    }
 
     // thrust range = [0, 4095]
     // max(thrust) = 2 m/s (climb/sink rate)
