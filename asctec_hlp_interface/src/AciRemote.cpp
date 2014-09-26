@@ -967,24 +967,14 @@ void AciRemote::publishStatusMotorsRcData() {
 void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // acquire shared lock in order to read from RO_ALL_Data_
     boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
-    std_msgs::String str;
-    /*
+
     if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
         ROS_WARN_STREAM("UAV in GPS mode");
-        if (externalise_state_) {
-            str.data = std::string("UAV is in GPS mode");
-            extern_pub_.publish(str);
-        }
     }
     else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
         ROS_WARN_STREAM("UAV in Height mode");
-        if (externalise_state_) {
-            str.data = std::string("UAV is in height mode");
-            extern_pub_.publish(str);
-        }
     }
-    else */
-    if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
+    else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
         ROS_ERROR_STREAM("UAV in manual mode: IGNORING for safety reasons");
         return;
     }
