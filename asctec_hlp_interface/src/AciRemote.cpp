@@ -984,7 +984,7 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // From my understanding, whichever bit set will be controlled by the HLP
     // and whichever bit not set will still be controlled by the remote control
     // (i.e., the RC sticks)
-    WO_CTRL_.ctrl = 0x04;
+    WO_CTRL_.ctrl = 0x02;
 
     // thrust range = [0, 4095]
     // max(thrust) = 2 m/s (climb/sink rate)
@@ -992,9 +992,15 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     WO_CTRL_.thrust = std::min<short>(4095, short(cmd->linear.z * (4095.0/2.0)));
 
     // yaw range = [-2047, 2047]
-    // max(yaw) = 200 degrees/s
-    // min(yaw) = -200 degrees/s
-    WO_CTRL_.yaw = cmd->angular.z;
+    // max(yaw) = 200 degrees/s = 3.49 (will limit to PI/2)
+    // min(yaw) = -200 degrees/s = -3.49 (will limit to -PI/2)
+    WO_CTRL_.yaw = short(cmd->angular.z * (2047.0/M_PI_2));
+    if (cmd->angular.z > 0.0) {
+        WO_CTRL_.yaw = std::min<short>(2047, WO_CTRL_.yaw);
+    }
+    else {
+        WO_CTRL_.yaw = std::max<short>(-2047, WO_CTRL_.yaw);
+    }
 
     // pitch range = [-2047, 2047]
     // max(pitch) = 3 m/s
