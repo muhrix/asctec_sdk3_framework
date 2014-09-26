@@ -20,6 +20,7 @@
 #include <boost/bind.hpp>
 
 #include <ros/ros.h>
+#include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <geographic_msgs/GeoPoint.h>
 #include <geographic_msgs/GeoPose.h>
@@ -89,6 +90,7 @@ private:
 	int bytes_recv_;
 	double ang_vel_variance_;
 	double lin_acc_variance_;
+    bool externalise_state_;
 
 	std::string imu_topic_;
 	std::string imu_custom_topic_;
@@ -97,6 +99,7 @@ private:
 	std::string gps_custom_topic_;
 	std::string rcdata_topic_;
 	std::string status_topic_;
+    std::string extern_topic_;
 	std::string motor_topic_;
 	std::string ctrl_topic_;
 	std::string ctrl_srv_name_;
@@ -110,6 +113,7 @@ private:
 	ros::Publisher gps_custom_pub_;
 	ros::Publisher rcdata_pub_;
 	ros::Publisher status_pub_;
+    ros::Publisher extern_pub_;
 	ros::Publisher motor_pub_;
 	ros::Subscriber ctrl_sub_;
 	ros::ServiceServer ctrl_srv_;

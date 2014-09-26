@@ -25,6 +25,9 @@
 #include "asctec_hlp_comm/MotorSpeed.h"
 #include "asctec_hlp_comm/GpsCustom.h"
 
+#include <sstream>
+#include <boost/lexical_cast.hpp>
+
 namespace AciRemote {
 
 void* aci_obj_ptr = NULL;
@@ -50,6 +53,7 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
     n_.param<int>("aci_heartbeat", aci_heartbeat_, 10);
     n_.param<double>("stddev_angular_velocity", ang_vel_variance_, 0.013); // taken from experiments
     n_.param<double>("stddev_linear_acceleration", lin_acc_variance_, 0.083); // taken from experiments
+    n_.param<bool>("externalise_robot_state", externalise_state_, bool(true));
 	ang_vel_variance_ *= ang_vel_variance_;
 	lin_acc_variance_ *= lin_acc_variance_;
 
@@ -61,6 +65,7 @@ AciRemote::AciRemote(ros::NodeHandle& nh):
     n_.param<std::string>("gps_custom_topic", gps_custom_topic_, std::string("gps_custom"));
     n_.param<std::string>("rcdata_topic", rcdata_topic_, std::string("rcdata"));
     n_.param<std::string>("status_topic", status_topic_, std::string("status"));
+    n_.param<std::string>("estate_externalisation_topic", extern_topic_, std::string("/espeak_node/speak_line"));
     n_.param<std::string>("motor_speed_topic", motor_topic_, std::string("motor_speed"));
     n_.param<std::string>("cmd_vel_topic", ctrl_topic_, std::string("cmd_vel"));
     n_.param<std::string>("ctrl_service", ctrl_srv_name_, std::string("set_uav_control"));
@@ -156,8 +161,13 @@ int AciRemote::initRosLayer() {
 			gps_pub_ = n_.advertise<sensor_msgs::NavSatFix>(gps_topic_, 1);
 			gps_custom_pub_ = n_.advertise<asctec_hlp_comm::GpsCustom>(gps_custom_topic_, 1);
 			rcdata_pub_ = n_.advertise<asctec_hlp_comm::mav_rcdata>(rcdata_topic_, 1);
-			status_pub_ = n_.advertise<asctec_hlp_comm::mav_hlp_status>(status_topic_, 1);
+            status_pub_ = n_.advertise<asctec_hlp_comm::mav_hlp_status>(status_topic_, 1);
 			motor_pub_ = n_.advertise<asctec_hlp_comm::MotorSpeed>(motor_topic_, 1);
+
+            // only advertise topic if parameter is set to true
+            if (externalise_state_) {
+                extern_pub_ = n_.advertise<std_msgs::String>(extern_topic_, 1);
+            }
 
 			ctrl_sub_ = n_.subscribe(ctrl_topic_, 1, &AciRemote::ctrlTopicCallback, this);
 
@@ -307,7 +317,7 @@ void AciRemote::getGpsWayptResultPose(asctec_hlp_comm::WaypointGPSResult& result
 //-------------------------------------------------------
 
 void AciRemote::checkVersions(struct ACI_INFO aciInfo) {
-	ROS_INFO("Received versions list from HLP");
+    ROS_INFO("Received versions list from HLP");
 	bool match = true;
 
 	ROS_INFO("Type\t\t\tDevice\t\tRemote");
@@ -958,20 +968,40 @@ void AciRemote::publishStatusMotorsRcData() {
 void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // acquire shared lock in order to read from RO_ALL_Data_
     boost::shared_lock<boost::shared_mutex> s_lock(shared_mtx_);
-
+    std_msgs::String str;
     if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_GPS) {
         ROS_WARN_STREAM("UAV in GPS mode");
+        if (externalise_state_) {
+            str.data = std::string("UAV is in GPS mode");
+            extern_pub_.publish(str);
+        }
     }
     else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_HEIGHT) {
         ROS_WARN_STREAM("UAV in Height mode");
+        if (externalise_state_) {
+            str.data = std::string("UAV is in height mode");
+            extern_pub_.publish(str);
+        }
     }
     else if (RO_ALL_Data_.UAV_status & HLP_FLIGHTMODE_ATTITUDE) {
         ROS_ERROR_STREAM("UAV in manual mode: IGNORING for safety reasons");
+        if (externalise_state_) {
+            str.data = std::string("UAV is in manual mode");
+            extern_pub_.publish(str);
+            str.data = std::string("Ignoring commands for safety reasons");
+            extern_pub_.publish(str);
+        }
         return;
     }
     else {
         ROS_ERROR_STREAM("UAV in unknown control mode. How is this possible?");
         return;
+        if (externalise_state_) {
+            str.data = std::string("UAV is in unknown control mode");
+            extern_pub_.publish(str);
+            str.data = std::string("How is this possible? Stop at once and revise source code");
+            extern_pub_.publish(str);
+        }
     }
 
     /*control byte:
@@ -987,6 +1017,14 @@ void AciRemote::ctrlTopicCallback(const geometry_msgs::TwistConstPtr& cmd) {
     // and whichever bit not set will still be controlled by the remote control
     // (i.e., the RC sticks)
     WO_CTRL_.ctrl = 0x3F; // 0011 1111 = 3F
+
+    if (externalise_state_) {
+        std::ostringstream oss;
+        oss << "The following commands will be controlled by the HLP. "
+            << "Pithc, roll, yaw, thrust, height and position.";
+        str.data = oss.str();
+        extern_pub_.publish(str);
+    }
 
     // thrust range = [0, 4095]
     // max(thrust) = 2 m/s (climb/sink rate)
@@ -1091,6 +1129,34 @@ bool AciRemote::ctrlServiceCallback(asctec_hlp_comm::HlpCtrlSrv::Request& req,
 	res.motor2 = WO_DIMC_.motor[1];
 	res.motor3 = WO_DIMC_.motor[2];
 	res.motor4 = WO_DIMC_.motor[3];
+
+    if (externalise_state_) {
+        std_msgs::String str;
+        std::ostringstream oss;
+        oss << "Control mode set to "
+                << boost::lexical_cast<std::string>(req.ctrl_mode);
+        str.data = oss.str();
+        extern_pub_.publish(str);
+
+        if (req.ctrl_enabled == 0x01) {
+            str.data = std::string("Control mode is enabled");
+            extern_pub_.publish(str);
+        }
+        else {
+            str.data = std::string("Control mode is disabled");
+            extern_pub_.publish(str);
+        }
+
+        if (req.disable_onoff_stick == 0x01) {
+            str.data = std::string("On off via stick is disabled");
+            extern_pub_.publish(str);
+        }
+        else {
+            str.data = std::string("On off via stick is enabled");
+            extern_pub_.publish(str);
+        }
+    }
+
 	return true;
 }
 
