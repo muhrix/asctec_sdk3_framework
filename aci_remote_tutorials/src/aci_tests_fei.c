@@ -12,8 +12,11 @@
 #include <unistd.h> // UNIX standard function definitions
 #include <fcntl.h>  // File control definitions
 #include <termios.h> // POSIX terminal control definitionss
+#include <stdint.h>
 #include <pthread.h>
 #include <time.h>
+
+typedef uint16_t u_int16_t;
 
 int fd;
 
